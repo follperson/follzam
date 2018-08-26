@@ -1,5 +1,5 @@
 
-This is my submission for ASSIGNMENT NAME. I have checked the files changed in this pull request, and it contains only the code I wrote for this assignment, not any other assignments.
+This is my submission for ASSIGNMENT NAME (put the name in the title too!). I have checked the files changed in this pull request, and it contains only the code I wrote for this assignment, not any other assignments.
 
 I discussed this assignment with the following students: NAMES
 
