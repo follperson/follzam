@@ -1,7 +1,7 @@
 
-This is my submission for ASSIGNMENT NAME (put the name in the title too!). I have checked the files changed in this pull request, and it contains only the code I wrote for this assignment, not any other assignments.
+This is my submission for ASSIGNMENT NAME [put the name in the title too!]. I have checked the files changed in this pull request (below), and it contains only the code I wrote for this assignment, not any other assignments.
 
-I discussed this assignment with the following students: NAMES
+I discussed this assignment with these students: NAMES
 
 ## Comments and questions
 
@@ -17,7 +17,7 @@ I certify that this assignment is my own work, and that:
 
 I understand that violation of this policy is considered academic dishonesty, and has serious consequences, including course failure.
 
-If I have any questions about the policies in the syllabus, I know to contact the instructors.
+If I have any questions about the policies in the syllabus, I will contact the instructors.
 
 Signed,
 
