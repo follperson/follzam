@@ -15,7 +15,7 @@ I certify that this assignment is my own work, and that:
 - I followed the collaboration policy in the syllabus, and did not look at any other student's code (or have them dictate it to me). I did not share my code with any other student.
 - All students I discussed the assignment with are listed above.
 
-I understand that violation of this policy is considered academic dishonesty, and has serious consequences, including course failure.
+I understand that violation of the course policy is considered academic dishonesty, and has serious consequences, including course failure. Full policy details are in the syllabus.
 
 If I have any questions about the policies in the syllabus, I will contact the instructors.
 
