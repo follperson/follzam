@@ -22,6 +22,9 @@ I certify that this assignment is my own work, and that:
   with any other student.
 - All students I discussed the assignment with are listed above.
 
+I understand that violation of this policy is considered academic dishonesty,
+and has serious consequences, including course failure.
+
 If I have any questions about the policies in the syllabus, I know to contact
 the instructors.
 
