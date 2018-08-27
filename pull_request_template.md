@@ -1,11 +1,13 @@
 
-This is my submission for ASSIGNMENT NAME [put the name in the title too!]. I have checked the files changed in this pull request (below), and it contains only the code I wrote for this assignment, not any other assignments.
+This is my submission for [ATTN: ASSIGNMENT NAME] [put the name in the title too!]. I have checked the files changed in this pull request (below), and it contains only the code I wrote for this assignment, not any other assignments.
 
-I discussed this assignment with these students: NAMES
+I discussed this assignment with these students: [ATTN: NAMES]
+
+[ATTN: Request review from the TAs on the right!]
 
 ## Comments and questions
 
-[Answer any questions from the assignment here. If you have any comments on the assignment or requests for the TA, place them here as well.]
+[ATTN: Answer any questions from the assignment here. If you have any comments on the assignment or requests for the TA, place them here as well.]
 
 ## Academic integrity
 
@@ -21,4 +23,4 @@ If I have any questions about the policies in the syllabus, I will contact the i
 
 Signed,
 
-YOUR NAME HERE
+[ATTN: YOUR NAME HERE]
