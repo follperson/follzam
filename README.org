@@ -9,14 +9,8 @@ folder you'd like to place your assignments in, then run =git clone
 https://github.com...=, filling in the URL provided. This will create a folder
 containing these files.
 
-Next, /before you write or commit any code/, do the following:
-
-1. Switch to the =master= branch of your private homework repository (=git checkout
-   master=).
-2. Create a new branch for this assignment: =git branch assignment-name-here=.
-3. Switch to the branch: =git checkout assignment-name-here=.
-4. Make a new folder inside this one to store all the code and data for the
-   assignment.
+*Assignment submission instructions* are given in the problem-bank repository,
+linked below.
 
 ** Other useful repositories
 
@@ -25,50 +19,3 @@ Next, /before you write or commit any code/, do the following:
    - [[https://github.com/36-750/problem-bank][36-750/problem-bank]] contains all the assignments you can choose from,
      organized by topic. This repository will grow throughout the semester.
 
-** Assignment submission instructions
-
-   Once you're ready, commit your work (with =git add= and =git commit=). When
-   you're ready to submit:
-
-   1. Push your work to GitHub (=git push=).
-   2. In your web browser, go to your private repository on GitHub. Click the
-      "New pull request" button.
-   3. As the "base" branch, choose =master=. As the "compare" branch, select the
-      branch you created for this assignment.
-   4. Scroll down. You'll see a listing of the commits included in the pull
-      request and the diff the TAs will review. Make sure this includes the work
-      you intend to submit and nothing else. If it looks wrong, *stop and ask
-      for help*.
-   5. Press "Create pull request".
-   6. Give your pull request an informative title specifying the assignment
-      you're submitting. If required in the assignment, answer any questions in
-      the comment box.
-   7. On the right-hand side, under "Reviewers", select =36-750/tas=, which will
-      notify all the TAs.
-   8. Press "Create pull request".
-
-   Your assignment is now submitted and ready for the TAs to grade. If the TAs
-   determine you have mastered the assignment, they will approve the pull
-   request and merge it into your =master= branch.
-
-   You should only submit one assignment per pull request, and work on one
-   assignment on each branch. If you want to stop working on one assignment and
-   switch to another, commit your work, then switch branches.
-
-*** To resubmit an assignment
-
-    If the TAs determine you have not mastered an assignment and that it needs
-    revisions, they will mark your pull request "Changes requested". If you
-    don't understand their comments, you should *always feel free to reply and
-    ask for clarification*. You can also consult us during office hours.
-
-    To make revisions:
-
-    1. Make sure you're on the branch you used for the assignment (=git checkout
-       assignment-name-here=).
-    2. Make your revisions.
-    3. Commit your revisions (=git add= and =git commit=).
-    4. Push the revisions to GitHub (=git push=).
-    5. Go to GitHub and find your previous pull request. Your commits should
-       appear there. Leave a comment to notify the TAs that it's ready for
-       regrading.
