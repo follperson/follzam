@@ -2,20 +2,23 @@ kind: pipeline
 name: default
 
 steps:
-  - name: tests
+  - name: R-tests
     image: capnrefsmmat/statcomp:0.1
     pull: never
     commands:
-      - echo $DRONE_SOURCE_BRANCH
+      - echo "Running all R tests in branch ${DRONE_SOURCE_BRANCH}."
+      - echo "Looking in directory $(.ci/get-dirname.py)"
       - cd "$(.ci/get-dirname.py)"
-      - echo 'Test results:\n' >> comment.file
-      - pytest -v #>> comment.file
-      - Rscript ../.ci/run-tests.R #>> comment.file
-      - echo '\n' >> comment.file
+      - Rscript ../.ci/run-tests.R
 
-  # - name: gh-comment
-  #   image: jmccann/drone-github-comment:1
-  #   message_file: comment.file
+  - name: Python-tests
+    image: capnrefsmmat/statcomp:0.1
+    pull: never
+    commands:
+      - echo "Running all Python tests in branch ${DRONE_SOURCE_BRANCH}:"
+      - echo "Looking in directory $(.ci/get-dirname.py)"
+      - cd "$(.ci/get-dirname.py)"
+      - pytest -v
 
 trigger:
   event:
