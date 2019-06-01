@@ -4,6 +4,7 @@ name: default
 steps:
   - name: tests
     image: capnrefsmmat/statcomp
+    pull: if-not-exists
     commands:
       - cd "$(.ci/get-dirname.py)" && echo "Test results:\n```" >> comment.file && pytest -v >> comment.file && Rscript ../.ci/run-tests.R >> comment.file && echo "\n```\n" >> comment.file
 
