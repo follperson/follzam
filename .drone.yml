@@ -8,15 +8,14 @@ steps:
     commands:
       - echo $DRONE_SOURCE_BRANCH
       - cd "$(.ci/get-dirname.py)"
-      - echo 'Test results:\n'
-      - comment.file
-      - pytest -v >> comment.file
-      - Rscript ../.ci/run-tests.R >> comment.file
+      - echo 'Test results:\n' >> comment.file
+      - pytest -v #>> comment.file
+      - Rscript ../.ci/run-tests.R #>> comment.file
       - echo '\n' >> comment.file
 
-  - name: gh-comment
-    image: jmccann/drone-github-comment:1
-    message_file: comment.file
+  # - name: gh-comment
+  #   image: jmccann/drone-github-comment:1
+  #   message_file: comment.file
 
 trigger:
   event:
