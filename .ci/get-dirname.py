@@ -21,10 +21,9 @@ def branch_to_dir(branch):
     return branch
 
 try:
-    # DRONE_BRANCH contains the current branch, but Drone tests PR events on the
-    # merge into master, not the original branch. Instead, DRONE_COMMIT_REFSPEC
-    # contains source-branch:target_branch.
-    branch = os.environ["DRONE_COMMIT_REFSPEC"].split(":")[0]
+    # DRONE_SOURCE_BRANCH contains the PR's branch. Note that Drone tests by
+    # merging this into master, so DRONE_BRANCH is master.
+    branch = os.environ["DRONE_SOURCE_BRANCH"]
 except KeyError:
     sys.exit("Error: could not find the current branch name")
 

@@ -6,7 +6,7 @@ steps:
     image: capnrefsmmat/statcomp:0.1
     pull: never
     commands:
-      - echo $DRONE_COMMIT_REFSPEC
+      - echo $DRONE_SOURCE_BRANCH
       - cd "$(.ci/get-dirname.py)"
       - echo 'Test results:\n```'
       - comment.file
