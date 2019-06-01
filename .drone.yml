@@ -16,3 +16,7 @@ steps:
   - name: gh-comment
     image: jmccann/drone-github-comment:1
     message_file: comment.file
+
+trigger:
+  event:
+    - pull_request
