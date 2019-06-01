@@ -10,13 +10,13 @@ def branch_to_dir(branch):
     strip the -digit off the end.
     """
 
-    parts = branch.split(["-"])
+    parts = branch.split("-")
 
     if len(parts) == 1:
         return branch
 
     if parts[-1].isnumeric():
-        return "".join(parts[:-1])
+        return "-".join(parts[:-1])
 
     return branch
 
