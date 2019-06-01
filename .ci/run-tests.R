@@ -2,4 +2,4 @@
 
 library(testthat)
 
-test_dir(".", stop_on_failure = TRUE)
+test_dir(".", stop_on_failure = TRUE, reporter = CheckReporter)
