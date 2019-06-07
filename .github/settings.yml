@@ -1,0 +1,22 @@
+# Reference: https://github.com/probot/settings#github-settings
+
+repository:
+  has_issues: false
+  has_projects: false
+  has_wiki: false
+  has_downloads: false
+
+branches:
+  - name: master
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+      enforce_admins: false
+
+teams:
+  - name: TAs
+    permission: push
+  - name: Robots
+    permission: pull
+  - name: Instructors
+    permission: admin
