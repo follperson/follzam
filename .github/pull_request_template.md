@@ -1,5 +1,5 @@
 
-This is my submission for [ATTN: ASSIGNMENT NAME] [put the name in the title too!]. I have checked the files changed in this pull request (below), and it contains only the code I wrote for this assignment, not any other assignments.
+I have checked the files changed in this pull request (below), and it contains only the code I wrote for this assignment, not any other assignments.
 
 I discussed this assignment with these students: [ATTN: NAMES]
 
