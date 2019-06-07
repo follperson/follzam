@@ -9,13 +9,12 @@ folder you'd like to place your assignments in, then run =git clone
 https://github.com...=, filling in the URL provided. This will create a folder
 containing these files.
 
-*Assignment submission instructions* are given in the problem-bank repository,
-linked below.
+*Assignment submission instructions* are given in the [[https://36-750.github.io/course-info/assignment-instructions/][course website]].
 
-** Other useful repositories
+** Other useful links
 
-   - [[https://github.com/36-750/documents][36-750/documents]] contains the syllabus, assignment rubric, programming
-     practices checklists, and all lecture notes.
+   - [[https://36-750.github.io/][The course website]] contains the syllabus, assignment rubric, and all
+     lecture notes.
    - [[https://github.com/36-750/problem-bank][36-750/problem-bank]] contains all the assignments you can choose from,
      organized by topic. This repository will grow throughout the semester.
 
