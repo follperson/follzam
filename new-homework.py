@@ -402,7 +402,8 @@ def get_problem_info(name, problem_bank):
 
     if count == 0:
         die("Cannot find an assignment named '{}' in the problem bank.".format(name),
-            "The name must be spelled exactly as in the problem-bank repo.")
+            "The name must be spelled exactly as in the problem-bank repo.",
+            "Or the assignment is new and you did not pull the latest problem-bank updates.")
 
     return count > 1, count
 
@@ -495,13 +496,13 @@ if not valid:
     die("Repository '{0}' fails strict validity checks ({1}).".format(repo.working_tree_dir, why),
         "If this is assessment incorrect, consider using --skip-checks.")
 
-if repo.is_dirty():
-    die("Your repository has uncommitted changes.",
-        "You must commit or stash all changes before creating a new branch.")
-
 # Sanity-check the problem bank and the assignment they requested.
 problem_bank = check_problem_bank(repo.working_tree_dir, args.problems)
 is_vignette, num_parts = get_problem_info(aname, problem_bank)
+
+if repo.is_dirty():
+    die("Your repository has uncommitted changes.",
+        "You must commit or stash all changes before creating a new branch.")
 
 hw_branch, base, hdir_name, sequelp = \
     branch_base_dir_names(repo, aname, args.base or "master", is_vignette,
