@@ -153,7 +153,6 @@ def guess_repo(starting_dir):
 def find_repo(maybe_repo, guess, cwd):
     """Find the assignments respository starting from an initial candidate.
 
-    May check environment variable X50_HW_REPO for the repository location.
 
     Parameters:
     + maybe_repo -- if not empty, the repository to use, which must exist
@@ -161,7 +160,6 @@ def find_repo(maybe_repo, guess, cwd):
     + cwd        -- current working directory
 
     """
-    edir = os.environ.get('X50_HW_REPO')
     repo = None
 
     if maybe_repo:
@@ -169,8 +167,6 @@ def find_repo(maybe_repo, guess, cwd):
         if repo is None:
             die('Cannot find specified repository {}'.format(maybe_repo))
 
-    if edir and repo is None:
-        repo = try_repo(os.path.abspath(edir))
     if guess and repo is None:
         repo = guess_repo(cwd)
     if repo is None:
@@ -297,7 +293,6 @@ def make_hw_branch(repo, name, base):
 def check_problem_bank(repo_dir, problem_base):
     """Find the local problem bank and check that it is accessible."""
     problem_bank = (problem_base and os.path.abspath(problem_base)) or \
-        os.environ.get('X50_HW_PROBLEMS') or \
         os.path.normpath(os.path.join(repo_dir, "../problem-bank"))
 
     if not problem_bank or not os.access(problem_bank, os.R_OK):
@@ -429,8 +424,8 @@ parser.add_argument("-b", "--base",
 parser.add_argument("-g", "--guess-repo",
                     default=False,
                     action='store_true',
-                    help="If no repo is specified on the command line or in the "
-                    "environment, attempt to find it nearby or in a few likely "
+                    help="If no repo is specified on the command line, "
+                    "attempt to find it nearby or in a few likely "
                     "directories below the user's HOME.")
 
 parser.add_argument("--no-commit",
@@ -447,15 +442,13 @@ parser.add_argument("-p", "--problems",
                     type=str,
                     default="",
                     help="Path of problem-bank repository directory. "
-                    "If not supplied, use X50_HW_PROBLEMS environment variable,"
-                    "and otherwise ../problem-bank from the homework repo.")
+                    "If not supplied, use ../problem-bank from the homework repo.")
 
 parser.add_argument("-r", "--repo",
                     type=str,
                     default="",
                     help="Path to assignments repository directory. "
-                    "If not supplied, use the value of environment variable "
-                    "X50_HW_REPO if defined, or a guessed directory if -g option"
+                    "If not supplied, use a guessed directory if -g option"
                     "is supplied, or the current directory otherwise.")
 
 parser.add_argument("-v", "--verbose",
