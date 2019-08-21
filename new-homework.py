@@ -50,7 +50,7 @@ try:
 except ModuleNotFoundError:
     print("Error: GitPython module is not installed!")
     print("Make sure you install it first:")
-    print("pip3 install GitPython")
+    print("pip install GitPython")
     sys.exit(1)
 
 __version__ = '0.4.0'
