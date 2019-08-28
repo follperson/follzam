@@ -1,0 +1,14 @@
+Checking your system setup...
+Run at 2019-08-28T11:55:43.667430
+
+Python is version 3.5 or newer: yes
+python3 is on the PATH: yes
+R is on the PATH: yes
+
+Git is on the PATH: yes
+GitPython module is installed and importable: yes
+git config user.name is set to a nonempty value: yes
+git config user.email is set to a nonempty value: yes
+git config core.editor is set to a nonempty value: yes
+
+Everything looks good!
