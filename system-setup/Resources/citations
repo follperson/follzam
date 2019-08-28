@@ -1,0 +1,6 @@
+#+TITLE: Citations, Links, and Sources
+I used the following site to learn that I needed to put an ".exe" after "python"
+when piping the output of the system-check.py file to the submissions.txt file.
+(i.e. "python.exe resources/system_check.py >submission.txt" vs  "python resources/system_check.py > submission.txt".
+resolving the error  "stdout is not a tty"
+www.stackoverflow.com/questions/33622087
