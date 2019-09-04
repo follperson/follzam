@@ -1,0 +1,23 @@
+Reflection:
+
+I've come to this course with a basic understanding of git from a pretty 
+'seat of the pants' 2/3-person-technology-team. That means I knew about 
+bitbucket and github, commits, branching and pushing. However I primarily 
+used the IDE (pycharm) for my needs, and was pretty ignorant of 
+what was happening under the hood. This was a pretty helpful exercise both
+employing the basic commands which I already knew (commit, push, pull, fetch,
+branch, checkout, revert) using the shell, as well as exploring new commands 
+like tagging and multiple remote management through aliasing. This reinforced my
+ basic understanding, and exposed me to traversing the commit tree via the 
+command line (i.e. not only using github/bitbucket tools). I think 
+that that capability, to locate specific commits, filter the commit history
+by message, tag, hash or banch, is the most useful thing I picked up. 
+I'm still a bit confused on how to traverse this commit tree with multiple branches, 
+but the resources you provided seem informative and I'll have to go back to them. 
+I also think that a super useful thing is super specifically specifiying which 
+file you want from any given commit. In Pycharm I think this was called 'cherry picking'
+though I'm not sure as I avoided it, and often manually forced changes which I now
+realize I could have accessed using the version control system. Though I don't know 
+how much I'll use that in this class, primarily relying on linear individual 
+development, it will definitiely be useful in application with others.
+
