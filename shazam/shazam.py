@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
 
-## Your code goes here.
-def foo():
-    return 2
+def get_signature(wav):
+
+    pass
+
+
+def time_frequency_analysis():
+    #
+    pass
+
