@@ -1,12 +1,20 @@
 
 
 
-class DatabaseHandler(object):
+class DatabaseHandler():
     """
         class managing database update procedures
     """
 
+    def __init__(self, access_info):
+        """
+            use access_info to create connection with db
+        :param access_info:
+        """
+        pass
 
+    def initialize_database(self):
+        """ run through """
 
     def add_song(self, wav, metadata):
         # check if song already there

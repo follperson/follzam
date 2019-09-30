@@ -1,11 +1,12 @@
-#!/usr/bin/env python3
-
-def get_signature(wav):
-
-    pass
+from IO_methods import *
+from signal_processing import *
 
 
-def time_frequency_analysis():
-    #
-    pass
+
+def main():
+    fp = '/path/to/snippet'
+    audio = ReadAudioData()
+    audio.initialize(fp)
+    signal = SignalProcessor(audio.wav)
+    signal.transform_wav_to_matrices()
 
