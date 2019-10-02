@@ -1,4 +1,4 @@
-from ReadAudio import *
+from IO_methods import *
 
 path_to_mp3 = '/path/to/mp3'
 path_to_flac = '/path/to/flac'

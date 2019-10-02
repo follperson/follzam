@@ -1,9 +1,0 @@
-
-
-
-FLAC = 'FLAC'
-MP3 = 'MP3'
-MP4 = 'MP4'
-WAV = 'WAV'
-
-ALL = [FLAC, MP3, MP4, WAV]

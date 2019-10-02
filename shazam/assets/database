@@ -1,0 +1,24 @@
+schema looks like:
+    artist table
+        no foreign keys
+        name
+    album table
+        foreign key to artist
+        name
+        year
+        genre
+        date
+    song table
+        foreign keys to artist
+        foreign key to album
+        name
+        sampling rate
+        filelocation
+        url socket or filelocation
+    signature table (for each window size??)
+        foreign key to song
+        local periodogram (which is array)
+        signatures of each signature taking method
+        index of song
+
+
