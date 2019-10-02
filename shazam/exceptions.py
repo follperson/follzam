@@ -25,3 +25,11 @@ class MultipleRecordsFound(Exception):
 class NoRecordsFound(Exception):
     """ No records found but we were lookig for something.... """
 
+
+### Signal Processing Exceptions
+
+class NotWavData(Exception):
+    """ Expected WAV file format, but recevied other """
+
+class WindowTooBig(Exception):
+    """ The window size parraemeter is larger than the entire file!!"""

@@ -1,4 +1,7 @@
 
+from exceptions import NotWavData
+
+import wave
 class SignalProcessor(object):
     """
         Signal Processor class
@@ -15,7 +18,13 @@ class SignalProcessor(object):
         ALL = [EXACT_MATCH, SMOOTHED_PERIODOGRAM, FREQ_POWER_PAIRS, FREQ_PEAKS, MAX_POWER_FREQ_BANDS]
 
     def __init__(self, wav):
+        try:
+            assert type(wav) == wave.Wave_read
+        except AssertionError:
+            raise NotWavData
+
         self.wav = wav
+
         self.windows = []
         self.periodograms = []
         self.signatures = []
@@ -45,6 +54,8 @@ class SignalProcessor(object):
         :param size: window size
         :return:
         """
+        assert isinstance(size,(int, float))
+        assert size > 0
         for wav_window_index in range(size, len(self.wav)):
             window = self.wav[wav_window_index - size/2: wav_window_index + size/2]
             self.windows.append(self.compute_window(window))
