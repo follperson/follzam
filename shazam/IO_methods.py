@@ -1,11 +1,9 @@
 import os
 import requests
+from pydub import AudioSegment
 
-
-# should I make this into a bunch of files and estensible classes??
-# like an IO_Methods folder ->  a read audio base class then stream/file variants?
-# ...probably. put those in ReadAudio subfolder
-
+#?? is audio segment a wav
+# wav from numpy arrays
 
 class ReadAudioData(object):
     """
@@ -64,10 +62,15 @@ class ReadAudioData(object):
         # do some checks
         self._from_stream(socket)
 
+
     def _from_file(self, filepath):
         """ deduces file type (just by the extension now, maybe some other way later """
         fobj = open(filepath,'rb')
-        self.interpret_filetype(fobj)
+        audio = AudioSegment.from_file(fobj)
+        self.wav = audio
+
+
+
         # ext = filepath.split('.')[-1].upper()
         # fileobj = open(filepath, 'rb')
         # if ext == self.AcceptedAudioTypes.FILES.FLAC:
@@ -84,10 +87,9 @@ class ReadAudioData(object):
 
     @staticmethod
     def interpret_filetype(fobj):
-        # if it looks like a mp3, then do the mp3 one
-        # if it looks like a flac, do a flac
-        # etc...
-        pass
+        audio = AudioSegment.from_file(fobj) # it does it by itself
+
+
 
     def _from_stream(self, socket):
         """

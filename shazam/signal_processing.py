@@ -1,6 +1,4 @@
-
 from exceptions import NotWavData
-
 import wave
 class SignalProcessor(object):
     """
@@ -18,10 +16,10 @@ class SignalProcessor(object):
         ALL = [EXACT_MATCH, SMOOTHED_PERIODOGRAM, FREQ_POWER_PAIRS, FREQ_PEAKS, MAX_POWER_FREQ_BANDS]
 
     def __init__(self, wav):
-        try:
-            assert type(wav) == wave.Wave_read
-        except AssertionError:
-            raise NotWavData
+        # try:
+        #     assert type(wav) == wave.Wave_read
+        # except AssertionError:
+        #     raise NotWavData
 
         self.wav = wav
 
@@ -48,16 +46,17 @@ class SignalProcessor(object):
         # elif
         # etc...
 
-    def windowing(self, size=5):
+    def windowing(self, num_secs=5):
         """
             take full initialized song and cut it up into a bunch of windows of given size
-        :param size: window size
+        :param num_secs: window size
         :return:
         """
-        assert isinstance(size,(int, float))
-        assert size > 0
-        for wav_window_index in range(size, len(self.wav)):
-            window = self.wav[wav_window_index - size/2: wav_window_index + size/2]
+        assert isinstance(num_secs, (int, float))
+        assert num_secs > 0
+        num_ms = num_secs*1000
+        for wav_window_index in range(1, len(self.wav) * 1000):
+            window = self.wav[wav_window_index - num_ms / 2: wav_window_index + num_ms / 2]
             self.windows.append(self.compute_window(window))
 
     def compute_window(self, window):
