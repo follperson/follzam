@@ -1,6 +1,6 @@
 import os
 import requests
-
+from pydub import AudioSegment
 
 class ReadAudioData(object):
     """
@@ -46,7 +46,7 @@ class ReadAudioData(object):
         except BaseException:
             pass  # idk
         download = resp  # download
-        self.interpret_filetype(download)
+        audio=AudioSegment.from_file(download)
         # check the download ftype type
         # handle read_url
 
@@ -54,29 +54,12 @@ class ReadAudioData(object):
         # do some checks
         self._from_stream(socket)
 
+
     def _from_file(self, filepath):
         """ deduces file type (just by the extension now, maybe some other way later """
-        fobj = open(filepath, 'rb')
-        self.interpret_filetype(fobj)
-        # ext = filepath.split('.')[-1].upper()
-        # fileobj = open(filepath, 'rb')
-        # if ext == self.AcceptedAudioTypes.FILES.FLAC:
-        #     self._from_flac(fileobj)
-        # elif ext == self.AcceptedAudioTypes.FILES.MP3:
-        #     self._from_mp3(fileobj)
-        # elif ext == self.AcceptedAudioTypes.FILES.MP4:
-        #     self._from_mp4(fileobj)
-        # elif ext == self.AcceptedAudioTypes.FILES.WAV:
-        #     self._from_wav(fileobj)
-        # else:
-        #     raise UnsupportedFileType
-
-    @staticmethod
-    def interpret_filetype(fobj):
-        # if it looks like a mp3, then do the mp3 one
-        # if it looks like a flac, do a flac
-        # etc...
-        pass
+        fobj = open(filepath,'rb')
+        audio = AudioSegment.from_file(fobj)
+        self.wav = audio
 
     def _from_stream(self, socket):
         """
@@ -84,17 +67,3 @@ class ReadAudioData(object):
         """
         pass
 
-    def _from_mp3(self, fileobj):
-        # method to read in mp3
-        # turn it into wav
-        pass
-
-    def _from_wav(self, fileobj):
-        # method to read in mp3
-        pass
-
-    def _from_flac(self, fileobj):
-        pass
-
-    def _from_mp4(self, fileobj):
-        pass

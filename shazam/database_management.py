@@ -1,3 +1,6 @@
+import sqlite3
+from SignalProcessing import *
+
 def get_access_info():
     pass
 
@@ -8,13 +11,25 @@ class DatabaseHandler(object):
 
     """
 
+    class CreateDB:
+        create_genre = """CREATE TABLE GENRE 
+        [ID] INTEGER PRIMARY KEY, [GENRE] text"""
+
+        create_album = """CREATE TABLE ALBUM ( 
+            ID INTEGER PRIMARY KEY, [ARTIST_ID] integer, [ALBUM_NAME] text, [YEAR] integer, [GENRE_ID] INTEGER);
+        """
+        create_artist = """CREATE TABLE ARTIST ( 
+            ID INTEGER PRIMARY KEY, [NAME] text);
+    """
+
     def __init__(self):
         """
             initialize a database connection
         """
         access_info = get_access_info()
         # connect to db using access info
-        self.db = access_info
+        conn = sqlite3.connect(**access_info)
+        self.db = conn
 
         pass
 
