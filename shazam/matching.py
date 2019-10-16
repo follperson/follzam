@@ -1,5 +1,5 @@
 from database_management import DatabaseHandler
-from signal_processing import SignalProcessor
+from Resources.signal_processing import SignalProcessor
 # should i not do this in a class so I can multithread it? or is that not necessary
 
 
@@ -11,7 +11,7 @@ class SignatureChecking(object):
     """
     def __init__(self, reference,
                  n_matches=1,
-                 signature_type=SignalProcessor.SignatureProcesses.EXACT_MATCH):
+                 signature_type=None):
         """
 
         :param reference:

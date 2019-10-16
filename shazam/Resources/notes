@@ -1,0 +1,17 @@
+
+signature is at the song level
+spectrogram is frequency vs time matrix!! not just image
+  smooth frequency time representation of signal
+spectrograms are already fourier transformed!!
+spectrogram noise filteration using low pass filter to get constellation matrix
+ constellation matrix then gets hashed frequency dictionary
+fingerprint of spectrogram using
+
+locally sensitive
+
+spectrogram is and windowed periodgramed already
+
+hash borrows information of neighboring peaks before generating structure
+
+into figerpreing dict,
+   from hz and time, you get a hash

@@ -1,12 +1,6 @@
 import os
 import requests
 
-
-# should I make this into a bunch of files and estensible classes??
-# like an IO_Methods folder ->  a read audio base class then stream/file variants?
-# ...probably. put those in ReadAudio subfolder
-
-
 class ReadAudioData(object):
     """
         class housing the audio input processing functions.
@@ -14,18 +8,12 @@ class ReadAudioData(object):
         WAV structured data
     """
 
-    class AcceptedAudioTypes:
-        class FILES:
-            FLAC = 'FLAC'
-            MP3 = 'MP3'
-            MP4 = 'MP4'
-            WAV = 'WAV'
+    FLAC = 'FLAC'
+    MP3 = 'MP3'
+    MP4 = 'MP4'
+    WAV = 'WAV'
 
-            ALL = [FLAC, MP3, MP4, WAV]
-
-        class STREAMS:
-            STREAM = 'STREAM'
-            OTHERSTREAMS = 'OTHERSTREAMS'
+    ACCEPTED = [FLAC, MP3, MP4, WAV]
 
     def __init__(self, filepath=None, stream=None):
         assert not (filepath is None and stream is None), 'You must specify aa filepath or a stream'

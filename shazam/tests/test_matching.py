@@ -1,5 +1,5 @@
 from matching import SignatureChecking
-from signal_processing import SignalProcessor
+
 
 def test_signature_compare():
     sig1 = ''

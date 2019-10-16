@@ -1,35 +1,34 @@
-
 from exceptions import NotWavData
 
 import wave
+
+
 class SignalProcessor(object):
     """
         Signal Processor class
         This class houses all of the functions which deal with processing signals
         Each class owns a wav segment
     """
-    class SignatureProcesses:
-        EXACT_MATCH = 'EXACT_MATCH'
-        SMOOTHED_PERIODOGRAM = 'SMOOTHED_PERIODOGRAM'
-        FREQ_POWER_PAIRS = 'FREQ_POWER_PAIRS'
-        FREQ_PEAKS = 'FREQ_PEAKS'
-        MAX_POWER_FREQ_BANDS = 'MAX_POWER_FREQ_BANDS'
+    # class SignatureMethods: will implement these as subclasses to this as an abstract class,but no
+    EXACT_MATCH = 'EXACT_MATCH'
+    SMOOTHED_PERIODOGRAM = 'SMOOTHED_PERIODOGRAM'
+    FREQ_POWER_PAIRS = 'FREQ_POWER_PAIRS'
+    FREQ_PEAKS = 'FREQ_PEAKS'
+    MAX_POWER_FREQ_BANDS = 'MAX_POWER_FREQ_BANDS'
 
-        ALL = [EXACT_MATCH, SMOOTHED_PERIODOGRAM, FREQ_POWER_PAIRS, FREQ_PEAKS, MAX_POWER_FREQ_BANDS]
+    ALL = [EXACT_MATCH, SMOOTHED_PERIODOGRAM, FREQ_POWER_PAIRS, FREQ_PEAKS, MAX_POWER_FREQ_BANDS]
 
-    def __init__(self, wav):
+    def __init__(self, wav, signature_method=EXACT_MATCH):
         try:
             assert type(wav) == wave.Wave_read
         except AssertionError:
             raise NotWavData
 
         self.wav = wav
-
         self.windows = []
         self.periodograms = []
         self.signatures = []
-
-    def main(self, signature_type=SignatureProcesses.EXACT_MATCH):
+    def main(self, signature_type=EXACT_MATCH):
         """
             main function used for end to end computation of wav file to signatures
                 object still stores the relevant data
@@ -40,9 +39,9 @@ class SignalProcessor(object):
         """
         self.windowing()
         self.compute_periodograms()
-        if signature_type == self.SignatureProcesses.EXACT_MATCH:
+        if signature_type == self.EXACT_MATCH:
             self.signatures = self.periodograms
-        elif signature_type == self.SignatureProcesses.SMOOTHED_PERIODOGRAM:
+        elif signature_type == self.SMOOTHED_PERIODOGRAM:
             pass
             # etc..
         # elif

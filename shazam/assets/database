@@ -12,13 +12,13 @@ schema looks like:
         foreign keys to artist
         foreign key to album
         name
+        spectrogram
         sampling rate
         filelocation
         url socket or filelocation
-    signature table (for each window size??)
+    signature table (?)
         foreign key to song
-        local periodogram (which is array)
-        signatures of each signature taking method
-        index of song
-
+        frequency
+        frequency signature
+        index of time window in song
 

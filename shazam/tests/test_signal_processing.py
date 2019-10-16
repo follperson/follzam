@@ -1,4 +1,4 @@
-from signal_processing import*
+from Resources.signal_processing import*
 from exceptions import NotWavData, WindowTooBig
 import wave
 import pickle
@@ -14,6 +14,8 @@ wav2 = wave.open(filepath2)
 
 picklepath2 = 'assets/files_for_tests/test2.pkl'
 pickle2 = pickle.unpack(picklepath2)
+
+# make sure spectrograms are not negative test
 
 
 def test_windowing():
