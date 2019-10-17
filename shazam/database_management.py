@@ -1,6 +1,7 @@
 def get_access_info():
     pass
 
+
 class DatabaseHandler(object):
     """
         class managing database update procedures
@@ -29,7 +30,8 @@ class DatabaseHandler(object):
     def add_spectrogram(self, song_id, spectrograms, windowsize):
         for i, spectrogram in enumerate(spectrograms):
             center = (i / len(spectrograms)) + windowsize / 2
-            # spectrogram to add to database with center and song_id and windowsize
+            # spectrogram to add to database with center and song_id and
+            # windowsize
 
     def remove_song(self, name):
         """
@@ -48,20 +50,20 @@ class DatabaseHandler(object):
         # print(df)
         pass
 
-    def get_song(self, field, value): # searching
+    def get_song(self, field, value):  # searching
         # if field = 'id' return value
         # id = sql where field = value
         # return id
         pass
 
     def get_song_by_title(self, title):
-        self.get_song(field='title',value=title)
+        self.get_song(field='title', value=title)
 
     def get_song_by_artist(self, artist):
-        self.get_song(field='artist',value=artist)
+        self.get_song(field='artist', value=artist)
 
     def get_song_by_periodogram(self, periodogram):
-        self.get_song(field='periodogram',value=periodogram)
+        self.get_song(field='periodogram', value=periodogram)
 
     def view_library(self):
         # select some fun stuff out the lib
@@ -73,7 +75,7 @@ class DatabaseHandler(object):
         :return:
         """
 
-    def view_spectrogram(self, song_id, period=(0,-1)):
+    def view_spectrogram(self, song_id, period=(0, -1)):
         """
             select all the periodograms associated with song_id, and then
         :param song_id:

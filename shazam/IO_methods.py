@@ -1,6 +1,7 @@
 import os
 import requests
 
+
 class ReadAudioData(object):
     """
         class housing the audio input processing functions.
@@ -16,8 +17,10 @@ class ReadAudioData(object):
     ACCEPTED = [FLAC, MP3, MP4, WAV]
 
     def __init__(self, filepath=None, stream=None):
-        assert not (filepath is None and stream is None), 'You must specify aa filepath or a stream'
-        assert not (filepath is not None and stream is not None), 'You mus specify a filepath OR a stream, not both'
+        assert not (
+            filepath is None and stream is None), 'You must specify aa filepath or a stream'
+        assert not (
+            filepath is not None and stream is not None), 'You mus specify a filepath OR a stream, not both'
 
         self.wav = None
         self.ext = None
@@ -40,13 +43,12 @@ class ReadAudioData(object):
     def read_url(self, url):
         try:
             resp = requests.get(url)
-        except:
-            pass #idk
-        download = resp # download
+        except BaseException:
+            pass  # idk
+        download = resp  # download
         self.interpret_filetype(download)
         # check the download ftype type
         # handle read_url
-
 
     def read_stream(self, socket):
         # do some checks
@@ -54,7 +56,7 @@ class ReadAudioData(object):
 
     def _from_file(self, filepath):
         """ deduces file type (just by the extension now, maybe some other way later """
-        fobj = open(filepath,'rb')
+        fobj = open(filepath, 'rb')
         self.interpret_filetype(fobj)
         # ext = filepath.split('.')[-1].upper()
         # fileobj = open(filepath, 'rb')
@@ -68,7 +70,6 @@ class ReadAudioData(object):
         #     self._from_wav(fileobj)
         # else:
         #     raise UnsupportedFileType
-
 
     @staticmethod
     def interpret_filetype(fobj):
@@ -88,13 +89,12 @@ class ReadAudioData(object):
         # turn it into wav
         pass
 
-    def _from_wav(self,fileobj):
+    def _from_wav(self, fileobj):
         # method to read in mp3
         pass
 
-    def _from_flac(self,fileobj):
+    def _from_flac(self, fileobj):
         pass
 
     def _from_mp4(self, fileobj):
         pass
-

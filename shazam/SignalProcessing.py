@@ -3,23 +3,6 @@ import wave
 import scipy.signal as ss
 
 
-# signature is at the song level
-# spectrogram is frequency vs time matrix!! not just image
-#   smooth frequency time representation of signal
-# spectrograms are already fourier transformed!!
-# spectrogram noise filteration using low pass filter to get constellation matrix
-#  constellation matrix then gets hashed frequency dictionary
-# fingerprint of spectrogram using
-
-# locally sensitive
-
-# spectrogram is and windowed periodgramed already
-
-# hash borrows information of neighboring peaks before generating structure
-
-# into figerpreing dict,
-#    from hz and time, you get a hash
-
 class SignalProcessor(object):
     EXACT_MATCH = 'EXACT_MATCH'
     SMOOTHED_PERIODOGRAM = 'SMOOTHED_PERIODOGRAM'
@@ -27,12 +10,18 @@ class SignalProcessor(object):
     FREQ_PEAKS = 'FREQ_PEAKS'
     MAX_POWER_FREQ_BANDS = 'MAX_POWER_FREQ_BANDS'
 
-    ALL = [EXACT_MATCH, SMOOTHED_PERIODOGRAM, FREQ_POWER_PAIRS, FREQ_PEAKS, MAX_POWER_FREQ_BANDS]
+    ALL = [
+        EXACT_MATCH,
+        SMOOTHED_PERIODOGRAM,
+        FREQ_POWER_PAIRS,
+        FREQ_PEAKS,
+        MAX_POWER_FREQ_BANDS]
 
     def __init__(self, wav, window_size=5):
         self.wav = wav
         self.window_size = window_size
         self.spectrogram = None
+        self.periodogram = None
 
     def main(self):
         self.compute_spectrogram()
@@ -42,7 +31,8 @@ class SignalProcessor(object):
         raise NotImplementedError
 
     def compute_spectrogram(self):
-        self.spectrogram = ss.spectrogram(self.wav, fs=1, window=self.window_size)
+        self.spectrogram = ss.spectrogram(
+            self.wav, fs=1, window=self.window_size)
         return self.spectrogram
 
     def compute_window(self, window):
@@ -52,7 +42,7 @@ class SignalProcessor(object):
 
     @staticmethod
     def hanning_window(t, h=5):
-        """ from notes """
+        """ from notes, to be implemented after initial spectrogram metho"""
         return
 
     @staticmethod
@@ -65,10 +55,9 @@ class SignalProcessor(object):
         # for window in self.windows:
         #     self.periodograms.append(self.compute_periodogram(window))
 
-
-    def compute_periodogram(self,window):
+    def compute_periodogram(self):
         """ Spectral Analysis """
-        # ss.periodogram(self.wav,window=self.window_size)
+        self.periodogram = ss.periodogram(self.wav, window=self.window_size)
 
         # intensity at each frequency
         # from fourier transformation (time domain from frequency domain)
@@ -93,17 +82,20 @@ class SignalProcessor(object):
         """plot it for visual representation"""
         pass
 
-
-    def windowing(self, size=5):
+    def windowing(self):
         """
             take full initialized song and cut it up into a bunch of windows of given size
         :param size: window size
         :return:
         """
-        assert isinstance(size, (int, float))
-        assert size > 0
-        for wav_window_index in range(size, len(self.wav)):
-            window = self.wav[wav_window_index - size / 2: wav_window_index + size / 2]
+        assert isinstance(self.window_size, (int, float))
+        assert self.window_size > 0
+        for wav_window_index in range(self.window_size, len(self.wav)):
+            window = self.wav[wav_window_index -
+                              self.window_size /
+                              2: wav_window_index +
+                              self.window_size /
+                              2]
             # self.windows.append(self.compute_window(window))
 
 
@@ -114,7 +106,7 @@ class SignalProcessorExactMatch(SignalProcessor):
         Each class owns a wav segment
     """
 
-    def __init__(self,wav, window_size):
+    def __init__(self, wav, window_size):
         super().__init__(wav, window_size)
 
     def compute_signature(self):
@@ -129,13 +121,12 @@ class SignalProcessorSmoothedPeriodogram(SignalProcessor):
         Each class owns a wav segment
     """
 
-    def __init__(self,wav, window_size):
+    def __init__(self, wav, window_size):
         super().__init__(wav, window_size)
 
     def compute_signature(self):
         # using the smoothed periodogram
         pass
-
 
 
 class SignalProcessorFreqPowerPairs(SignalProcessor):
@@ -145,7 +136,7 @@ class SignalProcessorFreqPowerPairs(SignalProcessor):
         Each class owns a wav segment
     """
 
-    def __init__(self,wav, window_size):
+    def __init__(self, wav, window_size):
         super().__init__(wav, window_size)
 
     def compute_signature(self):
@@ -161,9 +152,8 @@ class SignalProcessorFreqPeaks(SignalProcessor):
     """
     MAX_POWER_FREQ_BANDS = 'MAX_POWER_FREQ_BANDS'
 
-    def __init__(self,wav, window_size):
+    def __init__(self, wav, window_size):
         super().__init__(wav, window_size)
-
 
     def compute_signature(self):
         # using the FreqPeaks method
@@ -175,11 +165,9 @@ class SignalProcessorPowerBands(SignalProcessor):
         Power band signature processor
     """
 
-    def __init__(self,wav, window_size):
+    def __init__(self, wav, window_size):
         super().__init__(wav, window_size)
-
 
     def compute_signature(self):
         # using the power bands method
         pass
-

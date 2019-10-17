@@ -1,16 +1,16 @@
 from database_management import *
-
+from exceptions import CannotAddDuplicateRecords, NoRecordsFound
 with open('dbconn.info','r') as info:
     access_info = info.readlines()
 
 
 
 def test_connection():
-    dbh = DatabaseHandler(access_info)
-
+    dbh = DatabaseHandler()
+    assert dbh.db
 
 def test_add_song():
-    dbh = DatabaseHandler(access_info)
+    dbh = DatabaseHandler()
 
     wav = ''
     dbh.add_song(wav, 'Sam Stone', artist='John Prine')

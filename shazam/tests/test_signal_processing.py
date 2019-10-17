@@ -1,5 +1,5 @@
-from Resources.signal_processing import*
-from exceptions import NotWavData, WindowTooBig
+from SignalProcessing import *
+from exceptions import NotWavData
 import wave
 import pickle
 
@@ -18,17 +18,23 @@ pickle2 = pickle.unpack(picklepath2)
 # make sure spectrograms are not negative test
 
 
-def test_windowing():
+def test_signature_methods():
+    spe = SignalProcessorExactMatch(wav1,5)
+    spe.compute_spectrogram()
+    assert spe.spectrogram == ''' saved comparison spectrogram '''
+    spfp = SignalProcessorFreqPeaks(wav1,5)
+    spfp.compute_spectrogram()
+    assert spfp.spectrogram == ''' saved comparison spectrogram '''
+    spfpp = SignalProcessorFreqPowerPairs(wav1,5)
+    spfpp.compute_spectrogram()
+    assert spfpp.spectrogram == ''' saved comparison spectrogram '''
+    sppb= SignalProcessorPowerBands(wav1,5)
+    sppb.compute_spectrogram()
+    assert sppb.spectrogram == ''' saved comparison spectrogram '''
+    spsp =SignalProcessorSmoothedPeriodogram(wav1,5)
+    spsp.compute_spectrogram()
+    assert spsp.spectrogram == ''' saved comparison spectrogram '''
 
-    sp = SignalProcessor(wav1)
-    assert sp.windows == []
-    sp.windowing(5)
-    assert sp.windows == pickle1.sp1.window
-
-    try:
-        sp.windowing(99999)
-    except WindowTooBig:
-        pass
 
 
 def test_edge_cases():
