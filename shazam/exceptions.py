@@ -18,11 +18,11 @@ class CannotAddDuplicateRecords(Exception):
     """ Field is already populted, cannot add new record """
 
 
-class MultipleRecordsFound(Exception):
+class TooManyResults(Exception):
     """ error if we are looking for 1 record but found multiple """
 
 
-class NoRecordsFound(Exception):
+class NoResults(Exception):
     """ No records found but we were lookig for something.... """
 
 
