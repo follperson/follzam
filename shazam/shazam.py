@@ -3,7 +3,6 @@ from matching import *
 import os
 import pandas as pd
 
-
 def initialize():
     """
         stick all our songs into the database

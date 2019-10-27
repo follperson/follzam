@@ -1,7 +1,8 @@
 from exceptions import NotWavData
+import logging
 import wave
 import scipy.signal as ss
-
+import numpy as np
 
 class SignalProcessor(object):
     EXACT_MATCH = 'EXACT_MATCH'
@@ -16,71 +17,67 @@ class SignalProcessor(object):
         FREQ_POWER_PAIRS,
         FREQ_PEAKS,
         MAX_POWER_FREQ_BANDS]
+    NFFT = 2**12
+    FREQ_RANGES = [[i*2**8,(i+1)*2**8] for i in range(NFFT//2**8)]
 
-    def __init__(self, wav, window_size=5):
-        self.wav = wav
+    def __init__(self, audio_array, sample_freq, window_size=5):
+        self.audio_array = audio_array
+        self.sample_freq = sample_freq
         self.window_size = window_size
         self.spectrogram = None
-        self.periodogram = None
+        self.periodograms = []
+        self.signature = []
+        self.windows = []
+        self.smoothed_windows = []
 
     def main(self):
-        self.compute_spectrogram()
-        self.compute_signature()
+        self.compute_spectrogram(self.audio_array)
+        # self.compute_signature()
 
     def compute_signature(self):
         raise NotImplementedError
 
-    def compute_spectrogram(self):
-        self.spectrogram = ss.spectrogram(
-            self.wav, fs=1, window=self.window_size)
-        return self.spectrogram
+    def get_audio_signature(self):
+        for window_index in range(len(self.audio_array) - (self.window_size*1000)):
+            self.windows.append(self.audio_array[window_index:window_index + self.window_size*1000])
+        for window in self.windows:
+            self.smooth_window(window)
+        for window in self.smoothed_windows:
+            self.compute_periodogram(window)
 
-    def compute_window(self, window):
-        # implement fancy windowing function
-        # return improved window
-        pass
 
-    @staticmethod
-    def hanning_window(t, h=5):
-        """ from notes, to be implemented after initial spectrogram metho"""
-        return
-
-    @staticmethod
-    def blackman_window(t, h=5):
-        """ implement blackman windowing"""
-        pass
-
-    def compute_periodograms(self):
-        pass
-        # for window in self.windows:
-        #     self.periodograms.append(self.compute_periodogram(window))
-
-    def compute_periodogram(self):
+    def compute_avg_periodogram(self, window):
         """ Spectral Analysis """
-        self.periodogram = ss.periodogram(self.wav, window=self.window_size)
+        pd = ss.welch(window, fs=self.sample_freq, nperseg=self.sample_freq, nfft=512)
+        self.periodograms.append(pd)
 
+    def compute_periodogram(self, window):
+        """ Spectral Analysis """
+        f, pxx = ss.periodogram(window,
+                                fs=self.sample_freq,
+                                nfft=512)
+        self.periodograms.append(pxx)
+
+    def compute_signature(self, periodogram):
+        for low, high in self.FREQ_RANGES:
+            self.signature.append(np.argmax(periodogram[low:high]))
         # intensity at each frequency
         # from fourier transformation (time domain from frequency domain)
         # intensity and frequency
         # construct image of signature
-        # periodogram = ''
-        # return periodogram
         pass
 
-    @staticmethod
-    def smooth_periodogram(periodogram):
-        """
-        smooth the periodogram using the
-        :param periodogram:
-        :return:
-        """
-        # periodogram is array
-        return ''  # smoothed_periodorgam
+    def compute_spectrogram(self, audio_array):
+        spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, window=self.window_size)
+        return spectrogram
 
-    @staticmethod
-    def visualize_spectrogram(spectrogram):
-        """plot it for visual representation"""
+
+    def smooth_window(self, window):
+        # window
+        # implement fancy windowing function
+        # return improved window
         pass
+
 
     def windowing(self):
         """
@@ -90,12 +87,9 @@ class SignalProcessor(object):
         """
         assert isinstance(self.window_size, (int, float))
         assert self.window_size > 0
-        for wav_window_index in range(self.window_size, len(self.wav)):
-            window = self.wav[wav_window_index -
-                              self.window_size /
-                              2: wav_window_index +
-                              self.window_size /
-                              2]
+        for wav_window_index in range(self.window_size,
+                                      len(self.audio_array)):
+            window = self.audio_array[wav_window_index - self.window_size / 2: wav_window_index + self.window_size / 2]
             # self.windows.append(self.compute_window(window))
 
 
