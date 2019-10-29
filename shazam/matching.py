@@ -43,7 +43,7 @@ class SignatureChecking(object):
 def compare_new_signature(
         new_sig,
         num_matches,
-        signature_type=SignalProcessor.EXACT_MATCH):
+        signature_type=SignalProcessor.SIGNALTYPES.EXACT_MATCH):
     dbh = DatabaseHandler()
     signatures = dbh.get_all_signatures(signature_type)
     sc = SignatureChecking(new_sig, num_matches, signature_type)

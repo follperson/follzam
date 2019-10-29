@@ -7,7 +7,7 @@ spectrogram noise filteration using low pass filter to get constellation matrix
  constellation matrix then gets hashed frequency dictionary
 fingerprint of spectrogram using
 
-locally sensitive
+locally sensitive hashing
 
 spectrogram is and windowed periodgramed already
 
@@ -31,3 +31,10 @@ from nick
 # get max power in octaves
 # 16 values
 
+
+10/29 shamindra:
+do a spectrogram!
+when we find peaks, we want to put attention forwards in time.
+hashes are at a frequency dimension
+
+from local peak and the expected peaks close to it in both time and frequency to unique hash. frequency based peaks

@@ -1,6 +1,7 @@
 import psycopg2 as psql
 import assets.db_access_info as credentials
 from IO_methods import VALID_FILE_TYPES
+import logging
 from SignalProcessing import *
 from exceptions import *
 
@@ -11,6 +12,9 @@ def get_access_info():
             'dbname':'afollman'}
     pass
 
+
+# tests for oridnary ufcntions are separrate from dbquerying tests
+# pytests can be expected to fail or have skip logic
 
 
 class DatabaseInfo: # todo maybe put these into a sql folder and do away with the class.
@@ -68,7 +72,7 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
         channels integer NOT NULL,
         data bytea NOT NULL
         );
-    """.format(TABLE_NAMES.SONG_DATA, TABLE_NAMES.SONG,TABLE_NAMES.FILE_TYPE)
+    """.format(TABLE_NAMES.SONG_DATA, TABLE_NAMES.SONG, TABLE_NAMES.FILE_TYPE)
 
     create_file_types = """CREATE TABLE {} ( 
         id SERIAL PRIMARY KEY,
@@ -101,25 +105,21 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
     drop_tables = 'DROP TABLE IF EXISTS ' + ' CASCADE;\nDROP TABLE IF EXISTS '.join(TABLE_NAMES.ALL) + ' CASCADE;'
 
 
-def get_cursor():
-    con = psql.connect(**get_access_info())
-    return con.cursor()
-
-
 def initialize_database(delete=False):  # maybe I should put this somewhere else
-    cur = get_cursor()
+    dbh = DatabaseHandler()
+
     if delete:
-        cur.execute(DatabaseInfo.drop_tables)
+        dbh.cur.execute(DatabaseInfo.drop_tables)
     print(DatabaseInfo.create_full_schema)
-    cur.execute(DatabaseInfo.create_full_schema)
+    dbh.cur.execute(DatabaseInfo.create_full_schema)
 
     with open('assets/signature_types.sql','r') as sql_f:
         sql = sql_f.read()
-    cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES), SignalProcessor.ALL)
+    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES), SignalProcessor.SIGNALTYPES.ALL)
 
     with open('assets/file_types.sql','r') as file_f:
         sql = file_f.read()
-    cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.FILE_TYPE), VALID_FILE_TYPES)
+    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.FILE_TYPE), VALID_FILE_TYPES)
 
 
 class DatabaseHandler(object):
@@ -131,7 +131,9 @@ class DatabaseHandler(object):
         """
             initialize a database connection
         """
-        self.cur = get_cursor()
+
+        self.con = psql.connect(**get_access_info())
+        self.cur = self.con.cursor()
 
     def execute_query(self, query, params=None):
         try:
@@ -224,6 +226,14 @@ class DatabaseHandler(object):
         artists = self._generic_select(DatabaseInfo.TABLE_NAMES.ARTIST, cols_to_select, where)
         return artists
 
+    def get_signature_type_by_id(self, id): # todo this but more abstractly
+        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, ['name'],{'id':id})
+        return sig_type[0]['name']
+
+    def get_signature_id_by_name(self, name):
+        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, ['id'],{'name':name})
+        return sig_type[0]['id']
+
     def get_song_by_title(self, title, cols_to_select=('id',)):
         return self.get_song(cols_to_select, where={'title':title})
 
@@ -254,3 +264,18 @@ class DatabaseHandler(object):
         :param period:
         :return:
         """
+
+    def load_signal(self, sigp):
+        """
+            take signal processer object and
+        :param sigp:
+        :return:
+        """
+        n = len(sigp.windows)
+        keys = list(sigp.signature_info.keys())
+        song_id = self.get_song(['id'], sigp.songinfo)
+        sig_tyoe_id = self.get_signature_id_by_name(sigp.method)
+        update = list(zip(*[sigp.signature_info[k] for k in keys], [sig_tyoe_id] * n, [song_id] * n))
+        sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
+                                                           ('(' + '%s, ' * (len(keys) - 1) + '%s)') * len(update))
+        self.cur.execute(sql_base, update)
