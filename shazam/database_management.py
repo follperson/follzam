@@ -1,5 +1,6 @@
 import psycopg2 as psql
 import assets.db_access_info as credentials
+from IO_methods import VALID_FILE_TYPES
 from SignalProcessing import *
 from exceptions import *
 
@@ -10,7 +11,10 @@ def get_access_info():
             'dbname':'afollman'}
     pass
 
-class DatabaseInfo:
+
+
+class DatabaseInfo: # todo maybe put these into a sql folder and do away with the class.
+                    # wondering how i would manage the formating though...
     """ basically a dictionary to access some static database table names and such """
 
     class TABLE_NAMES:
@@ -49,7 +53,6 @@ class DatabaseInfo:
     create_song = """CREATE TABLE {} ( 
         id SERIAL PRIMARY KEY, 
         name text NOT NULL,
-        year integer,
         filesource text,
         artist_id integer REFERENCES {} (id),
         album_id integer REFERENCES {} (id),
@@ -59,10 +62,10 @@ class DatabaseInfo:
 
     create_songdata = """CREATE TABLE {} (
         id SERIAL PRIMARY KEY,
-        song_id REFERENCES {} (id) NOT NULL,
-        filetype_id REFERENCES {} (id) NOT NULL,
-        framerate INTEGER NOT NULL,
-        channels INTEGER NOT NULL,
+        song_id integer REFERENCES {} (id) NOT NULL,
+        filetype_id integer REFERENCES {} (id) NOT NULL,
+        framerate integer NOT NULL,
+        channels integer NOT NULL,
         data bytea NOT NULL
         );
     """.format(TABLE_NAMES.SONG_DATA, TABLE_NAMES.SONG,TABLE_NAMES.FILE_TYPE)
@@ -71,7 +74,7 @@ class DatabaseInfo:
         id SERIAL PRIMARY KEY,
         name text NOT NULL
         );
-    """.format(TABLE_NAMES.SIGNATURE_TYPES)
+    """.format(TABLE_NAMES.FILE_TYPE)
 
     create_signature_types = """CREATE TABLE {} ( 
         id SERIAL PRIMARY KEY,
@@ -79,6 +82,8 @@ class DatabaseInfo:
         );
     """.format(TABLE_NAMES.SIGNATURE_TYPES)
 
+    # should I add and OPTIONS column to specify and arguments which got passed?
+    # maybe i can pass that to the signature types part...?
     create_signature = """CREATE TABLE {} (
         time_index integer NOT NULL,
         frequency integer NOT NULL,
@@ -87,12 +92,34 @@ class DatabaseInfo:
         song_id integer REFERENCES {} (id) NOT NULL,
         PRIMARY KEY (song_id, method_id, time_index, frequency)
         );
-    """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.ARTIST, TABLE_NAMES.ALBUM)
+    """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_TYPES, TABLE_NAMES.SONG)
 
     create_full_schema = '\n '.join(
         [create_file_types, create_signature_types, create_artist, create_genre, create_album, create_song,
          create_songdata, create_signature])
 
+    drop_tables = 'DROP TABLE IF EXISTS ' + ' CASCADE;\nDROP TABLE IF EXISTS '.join(TABLE_NAMES.ALL) + ' CASCADE;'
+
+
+def get_cursor():
+    con = psql.connect(**get_access_info())
+    return con.cursor()
+
+
+def initialize_database(delete=False):  # maybe I should put this somewhere else
+    cur = get_cursor()
+    if delete:
+        cur.execute(DatabaseInfo.drop_tables)
+    print(DatabaseInfo.create_full_schema)
+    cur.execute(DatabaseInfo.create_full_schema)
+
+    with open('assets/signature_types.sql','r') as sql_f:
+        sql = sql_f.read()
+    cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES), SignalProcessor.ALL)
+
+    with open('assets/file_types.sql','r') as file_f:
+        sql = file_f.read()
+    cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.FILE_TYPE), VALID_FILE_TYPES)
 
 
 class DatabaseHandler(object):
@@ -104,10 +131,7 @@ class DatabaseHandler(object):
         """
             initialize a database connection
         """
-        access_info = get_access_info()
-        conn = psql.connect(**access_info)
-        self.con = conn
-        self.cur = conn.cursor()
+        self.cur = get_cursor()
 
     def execute_query(self, query, params=None):
         try:

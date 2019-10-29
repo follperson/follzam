@@ -3,10 +3,11 @@ import os
 import requests
 from pydub import AudioSegment
 import numpy as np
-
+VALID_FILE_TYPES = ['WAV','MP3','OGG','FLAC']
 # https://stackoverflow.com/a/53633178/9936238
 ex = r'assets/music/Blonde Redhead/Barragán/03  - Dripping.mp3'
 ex_url = "https://upload.wikimedia.org/wikipedia/en/0/0c/She_Loves_You_%28Beatles_song_-_sample%29.ogg"
+
 class ReadAudioData(object):
     """
         class housing the audio input processing functions.
@@ -15,6 +16,7 @@ class ReadAudioData(object):
     """
 
     def __init__(self, filepath=None, stream=None):
+        # todo make this cleaner
         assert not (
             filepath is None and stream is None), 'You must specify aa filepath or a stream'
         assert not (
@@ -27,10 +29,6 @@ class ReadAudioData(object):
             self.read_file(filepath)
         else:
             self.read_stream(stream)
-        # if obj is file
-        # self._from_file(obj)
-        # if obj is socket
-        # self.from_stream
 
         pass
 
@@ -50,7 +48,6 @@ class ReadAudioData(object):
         if resp.status_code not in (200, 201, 202, 203, 204): # url is bad
             # todo needs more nuance
             raise Exception
-
 
 
     def read_stream(self, url):

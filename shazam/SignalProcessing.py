@@ -3,9 +3,10 @@ import logging
 import wave
 import scipy.signal as ss
 import numpy as np
-
+from math import ceil
 NFFT = 2 ** 12
 INC = NFFT // 16
+
 
 class SignalProcessor(object):
     EXACT_MATCH = 'EXACT_MATCH'
@@ -29,7 +30,11 @@ class SignalProcessor(object):
         self.periodograms = []
         self.signature = []
         self.windows = []
-        self.smoothed_windows = []
+        self.smoothed_windows = [] # do i need this??/ looks like periodogram implements a smoothing
+        assert isinstance(self.window_size, (int, float))
+        assert self.window_size > 0
+        self.window_centers = list(range(self.window_size, ceil(len(self.audio_array) // self.sample_freq)))
+        self.signature_info = {'time_index': self.window_centers}
 
     def main(self):
         self.compute_signature()
@@ -41,7 +46,7 @@ class SignalProcessor(object):
         """ Spectral Analysis """
         for window in self.smoothed_windows:
             f, pxx = ss.periodogram(window, fs=self.sample_freq, nfft=NFFT, **kwargs)
-            self.periodograms.append(pxx)
+            self.periodograms.append((f, pxx))
 
     def compute_spectrogram(self, audio_array=None):
         if audio_array is None:
@@ -55,11 +60,10 @@ class SignalProcessor(object):
         :param size: window size
         :return:
         """
-        assert isinstance(self.window_size, (int, float))
-        assert self.window_size > 0
-        for wav_window_index in range(self.window_size*1000, len(self.audio_array) // 1000):
-            window = self.audio_array[wav_window_index - self.window_size*1000 / 2: wav_window_index + self.window_size*1000 / 2]
+        for window_index in self.window_centers:
+            window = self.audio_array[window_index - self.window_size // 2: window_index + self.window_size // 2]
             self.windows.append(window)
+
 
 
 class SignalProcessorExactMatch(SignalProcessor):
@@ -68,16 +72,23 @@ class SignalProcessorExactMatch(SignalProcessor):
         This class houses all of the functions which deal with processing signals
         Each class owns a wav segment
     """
+    EXACT_MATCH = 'EXACT_MATCH'
 
-    def __init__(self, wav, window_size):
-        super().__init__(wav, window_size)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __str__ (self):
+        return self.EXACT_MATCH
 
     def compute_signature(self):
         self.compute_windows()
         self.smoothed_windows = self.windows
         self.compute_periodogram()
         self.signature = self.periodograms
-
+        f, pxx = zip(*self.signature)
+        self.signature_info.update({'frequency': f,
+                                    'signature': pxx,
+                                    'method': self.EXACT_MATCH})
 
 class SignalProcessorSmoothedPeriodogram(SignalProcessor): # should i enable smoothing on the rest? probably
     """
@@ -94,7 +105,14 @@ class SignalProcessorSmoothedPeriodogram(SignalProcessor): # should i enable smo
 
     def compute_signature(self):
         self.compute_windows()
+        self.smoothed_windows = self.windows
         self.compute_periodogram(window=self.window_type)
+        self.signature = self.periodograms
+        f, pxx = zip(*self.signature)
+        self.signature_info.update({'frequency': f,
+                                    'signature': pxx,
+                                    'method': self.EXACT_MATCH})
+
 
 
 class SignalProcessorPeaksOnly(SignalProcessor):
@@ -111,10 +129,20 @@ class SignalProcessorPeaksOnly(SignalProcessor):
 
     def compute_signature(self):
         self.compute_windows()
+        self.smoothed_windows = self.windows
         self.compute_periodogram()
-        for periodogram in self.periodograms:
+        for f,pxx in self.periodograms:
+            peaks = [0]*len(pxx)
             for low, high in self.freq_ranges:
-                self.signature.append(np.argmax(periodogram[low:high]))
+                peaks[low + np.argmax(pxx[low:high])] = 1
+            self.signature.append((f, peaks))
+        freq, all_peaks = zip(*self.signature)
+        self.signature_info.update({'frequency': freq,
+                                    'signature': all_peaks,
+                                    'method': self.EXACT_MATCH})
+
+
+
 
 
 class SignalProcessorFreqPeaks(SignalProcessor):
@@ -124,6 +152,7 @@ class SignalProcessorFreqPeaks(SignalProcessor):
     MAX_POWER_FREQ_BANDS = 'MAX_POWER_FREQ_BANDS'
 
     def __init__(self, min_distance=NFFT/32, **kwargs):
+        raise NotImplementedError
         super().__init__(**kwargs)
         self.min_distance = min_distance  # could use distance between notes on the scale as default?
 
@@ -139,6 +168,7 @@ class SignalProcessorPowerBands(SignalProcessor):
     """
 
     def __init__(self, **kwargs):
+        raise NotImplementedError
         super().__init__(**kwargs)
 
     def compute_signature(self):
