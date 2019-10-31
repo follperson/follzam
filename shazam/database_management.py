@@ -1,17 +1,37 @@
-import psycopg2 as psql
 import assets.db_access_info as credentials
 from IO_methods import VALID_FILE_TYPES
+import pandas as pd
+import sqlalchemy
 import logging
 from SignalProcessing import *
 from exceptions import *
+GENRES = ['Indie Rock','Rap','Classical','Jazz']
+import numpy
+from psycopg2.extensions import register_adapter, AsIs
+
+# https://github.com/openego/ego.io/commit/8e7c64e0e9868b9bbc3156c70f6c368cad427f1f
+def adapt_numpy_int64(numpy_int64):
+    """ Adapting numpy.int64 type to SQL-conform int type using psycopg extension, see [1]_ for more info.
+    References
+    ----------
+    .. [1] http://initd.org/psycopg/docs/advanced.html#adapting-new-python-types-to-sql-syntax
+    """
+    return AsIs(numpy_int64)
+
+
+register_adapter(numpy.int64, adapt_numpy_int64)
 
 def get_access_info():
     return {'user':credentials.username,
             'password':credentials.password,
             'host':credentials.host,
             'dbname':'afollman'}
-    pass
 
+def get_engine():
+    info = get_access_info()
+    engine = sqlalchemy.create_engine('postgresql://' + info['user'] + ':' + info['password'] + '@' + info['host'])
+    engine.connect()
+    return engine
 
 # tests for oridnary ufcntions are separrate from dbquerying tests
 # pytests can be expected to fail or have skip logic
@@ -41,7 +61,7 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
 
     create_genre = """CREATE TABLE {} (
         id SERIAL PRIMARY KEY, 
-        GENRE text UNIQUE
+        name text UNIQUE
         );
     """.format(TABLE_NAMES.GENRE)
 
@@ -105,8 +125,9 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
     drop_tables = 'DROP TABLE IF EXISTS ' + ' CASCADE;\nDROP TABLE IF EXISTS '.join(TABLE_NAMES.ALL) + ' CASCADE;'
 
 
-def initialize_database(delete=False):  # maybe I should put this somewhere else
-    dbh = DatabaseHandler()
+def initialize_database(dbh=None,delete=False):  # maybe I should put this somewhere else
+    if dbh is None:
+        dbh = DatabaseHandler()
 
     if delete:
         dbh.cur.execute(DatabaseInfo.drop_tables)
@@ -121,6 +142,9 @@ def initialize_database(delete=False):  # maybe I should put this somewhere else
         sql = file_f.read()
     dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.FILE_TYPE), VALID_FILE_TYPES)
 
+    with open('assets/genres.sql','r') as genres:
+        sql = genres.read()
+    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.GENRE), GENRES)
 
 class DatabaseHandler(object):
     """
@@ -131,16 +155,15 @@ class DatabaseHandler(object):
         """
             initialize a database connection
         """
-
-        self.con = psql.connect(**get_access_info())
-        self.cur = self.con.cursor()
+        self.cur = get_engine()
+        self.con = self.cur.connect()
 
     def execute_query(self, query, params=None):
-        try:
-            self.cur.execute(query, vars=params)
-        except psql.errors.InFailedSQLTransaction:
-            self.cur.execute('rollback')
-            self.cur.execute(query, vars=params)
+        # try:
+        self.cur.execute(query, vars=params)
+        # except psql.errors.InFailedSQLTransaction:
+        #     self.cur.execute('rollback')
+        #     self.cur.execute(query, vars=params)
 
     def _generic_insert(self, table, insert_kv):
         assert table in DatabaseInfo.TABLE_NAMES.ALL
@@ -194,7 +217,7 @@ class DatabaseHandler(object):
         songs = self.get_song(cols_to_select, where)
         if len(songs) > 1:
             raise TooManyResults
-        return songs[0]
+        return songs[0][cols_to_select]
 
     @staticmethod
     def get_key_val_list(dict_to_unpack):
@@ -208,8 +231,9 @@ class DatabaseHandler(object):
         else:
             ks, vs = self.get_key_val_list(where)
         sql = 'SELECT {} FROM {} WHERE {}=%s'.format(', '.join(cols_to_select), table, '=%s and '.join(ks))
-        self.cur.execute(sql, vs)
-        vals = self.cur.fetchall()
+        resp = self.cur.execute(sql, vs)
+#        self.cur.
+        vals = resp.fetchall()
         if len(vals) == 0:
             raise NoResults
         return vals
@@ -271,11 +295,25 @@ class DatabaseHandler(object):
         :param sigp:
         :return:
         """
-        n = len(sigp.windows)
-        keys = list(sigp.signature_info.keys())
-        song_id = self.get_song(['id'], sigp.songinfo)
-        sig_tyoe_id = self.get_signature_id_by_name(sigp.method)
-        update = list(zip(*[sigp.signature_info[k] for k in keys], [sig_tyoe_id] * n, [song_id] * n))
-        sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
-                                                           ('(' + '%s, ' * (len(keys) - 1) + '%s)') * len(update))
-        self.cur.execute(sql_base, update)
+        # n = len(sigp.windows)
+        keys = list(sigp.signature_info.keys()) + ['song_id','method_id']
+        song_id = self.get_one_song(('id',), sigp.songinfo)
+        sig_type_id = self.get_signature_id_by_name(sigp.method)
+        # update = []
+
+        # put this into a tsql
+
+        for i, time_index in enumerate(sigp.signature_info['time_index']):
+            for f, v in zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]):
+                sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
+                                                                   ('(' + '%s, ' * (len(keys) - 1) + '%s)'))
+                self.cur.execute(sql_base, [time_index, f, v, song_id, sig_type_id])
+                # update.append([time_index, f, v, song_id, sig_type_id])
+        # update = [[sigp.signature_info['time_index'], sigp.signature_info['frequency'][i],sigp.signature_info['signature'][i]] for i in range(sigp.signature_info['frequency'])]
+        # update = list(zip([list(sigp.signature_info[k]) for k in keys], [sig_type_id] * n, [song_id] * n))
+        # df = pd.DataFrame(update, columns=list(keys) + ['method_id','song_id'])
+        # df.to_sql(DatabaseInfo.TABLE_NAMES.SIGNATURE, con=self.con)
+        #         sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
+        #                                                            ('(' + '%s, ' * (len(keys) - 1) + '%s)') * len(
+        #                                                                update))
+        # self.cur.execute(sql_base, update)

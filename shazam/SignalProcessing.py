@@ -85,7 +85,7 @@ class SignalProcessorExactMatch(SignalProcessor):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.name = SignalProcessor.SIGNALTYPES.EXACT_MATCH
+        self.method = SignalProcessor.SIGNALTYPES.EXACT_MATCH
 
     def compute_signature(self):
         self.compute_windows()
@@ -110,7 +110,7 @@ class SignalProcessorSmoothedPeriodogram(SignalProcessor): # should i enable smo
     def __init__(self, window_type=HANNING, **kwargs):
         super().__init__(**kwargs)
         self.window_type = window_type
-        self.method= self.SIGNALTYPES.SMOOTHED_PERIODOGRAM
+        self.method = self.SIGNALTYPES.SMOOTHED_PERIODOGRAM
 
     def compute_signature(self):
         self.compute_windows()
@@ -162,7 +162,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
     # might require some database adjustment because its time independent
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.name = SignalProcessor.SIGNALTYPES.EXACT_MATCH
+        self.method = SignalProcessor.SIGNALTYPES.EXACT_MATCH
         self.signature_info = {}
 
     def compute_signature(self):

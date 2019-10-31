@@ -15,27 +15,32 @@ def initialize(SigProc=sp.SignalProcessorExactMatch):
     :return:
     """
     sig_db = dbm.DatabaseHandler()
-    dbm.initialize_database(True)
+    dbm.initialize_database(dbh=sig_db, delete=True)
 
     path_to_songs = 'assets/audio/songs'
     # df_song_info = pd.read_csv('assets/audio/metadata/songs.csv')
     df_artist_info = pd.read_csv('assets/audio/metadata/artists.csv')
-    df_album_info = pd.read_csv('assets/audio/metadata/artists.csv')
-    df_genre_info = pd.read_csv('assets/audio/metadata/genre.csv')
+    df_album_info = pd.read_csv('assets/audio/metadata/album.csv')
     songs = os.listdir(path_to_songs)
     df_song_info = pd.DataFrame(data=songs, columns=['name'])
     # todo make these using 'get id'
     df_song_info['album_id'] = 1
     df_song_info['artist_id'] = 1
     df_song_info['filesource'] = df_song_info['name'].apply(lambda x: os.path.join(path_to_songs, x))
-    credentials = dbm.get_access_info()
-    con = create_engine( # todo make this work with the sig_db psycopg obj
-        'postgresql://' + credentials['user'] + ':' + credentials['password'] + '@' + credentials['host'])
 
-    df_artist_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.ARTIST, con=con,if_exists='append')
-    df_album_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.ALBUM, con=con,if_exists='append')
-    df_song_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.SONG, con=con,if_exists='append')
-    df_genre_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.GENRE, con=con,if_exists='append')
+    # df_artist_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.ARTIST, con=sig_db.con,if_exists='append')
+    for i in df_artist_info.index:
+        d = {k:df_artist_info.at[i, k] for k in df_artist_info.columns}
+        sig_db.add_artist(**d)
+    # df_album_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.ALBUM, con=sig_db.con,if_exists='append')
+    for i in df_album_info.index:
+        d = {k:df_album_info.at[i, k] for k in df_album_info.columns}
+        sig_db.add_album(**d)
+    # df_song_info.to_sql(name=dbm.DatabaseInfo.TABLE_NAMES.SONG, con=sig_db.con,if_exists='append')
+    for i in df_song_info.index:
+        d = {k:df_song_info.at[i, k] for k in df_song_info.columns}
+        sig_db.add_song(**d)
+
     for i in df_song_info.index:
         filesource, name, artist, album = df_song_info.loc[i, ['filesource', 'name', 'artist_id','album_id']]
         rad = ReadAudioData(os.path.join(path_to_songs, name))  # transform song to wav
