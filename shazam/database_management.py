@@ -2,7 +2,6 @@ import assets.db_access_info as credentials
 from IO_methods import VALID_FILE_TYPES
 import pandas as pd
 import sqlalchemy
-import logging
 from SignalProcessing import *
 from exceptions import *
 GENRES = ['Indie Rock','Rap','Classical','Jazz']
@@ -160,7 +159,7 @@ class DatabaseHandler(object):
 
     def execute_query(self, query, params=None):
         # try:
-        self.cur.execute(query, vars=params)
+        return self.cur.execute(query, vars=params)
         # except psql.errors.InFailedSQLTransaction:
         #     self.cur.execute('rollback')
         #     self.cur.execute(query, vars=params)
@@ -171,36 +170,84 @@ class DatabaseHandler(object):
         sql = 'INSERT INTO {} ({}) VALUES ({})'.format(table, ', '.join(ks), ', '.join(['%s']*len(vs)))
         self.cur.execute(sql, vs)
 
+    def _song_where_check(self, **kwargs):
+        if 'album' in kwargs:
+            if not isinstance(kwargs['album'], int):
+                album = kwargs.pop('album')
+                album_id = self.get_album_id(**{'name': album})
+                kwargs.update({'album_id':album_id})
+        if 'artist' in kwargs:
+            if not isinstance(kwargs['artist'], int):
+                artist = kwargs.pop('artist')
+                artist_id = self.get_artist_id(**{'name':artist})
+                kwargs.update({'artist_id': artist_id})
+        return kwargs
+
     def add_song(self, **kwargs):
+        kwargs = self._song_where_check(**kwargs)
         try:
-            self.get_song(where=kwargs)
-            raise TooManyResults
+            self.get_song(**kwargs)
+
+            raise CannotAddDuplicateRecords
         except NoResults as good:
             pass
         self._generic_insert(DatabaseInfo.TABLE_NAMES.SONG, kwargs)
 
+    def remove_artist(self, **kwargs):
+        artist_id = self.get_artist_id(**kwargs)
+        try:
+            self.get_song(artist_id=artist_id)
+            raise CannotDeleteLinkedData
+        except NoResults as ok:
+            pass
+        try:
+            self.get_album(artist_id=artist_id)
+            raise CannotDeleteLinkedData
+        except NoResults as ok:
+            pass
+        self._remove_generic_by_id(DatabaseInfo.TABLE_NAMES.ARTIST, artist_id)
+
     def add_artist(self, **kwargs):
         try:
-            self.get_artist(where=kwargs)
-            raise TooManyResults
+            self.get_artist(**kwargs)
+            raise CannotAddDuplicateRecords
         except NoResults as good:
             pass
         self._generic_insert(DatabaseInfo.TABLE_NAMES.ARTIST, insert_kv=kwargs)
 
     def add_album(self, **kwargs):
+        if 'artist' in kwargs:
+            artist = kwargs.pop('artist')
+            artist_id = self.get_artist_id(name=artist)
+            kwargs.update({'artist_id': artist_id})
         try:
-            self.get_album(where=kwargs)
-            raise TooManyResults
+            self.get_album(**kwargs)
+            raise CannotAddDuplicateRecords
         except NoResults as good:
             pass
         self._generic_insert(DatabaseInfo.TABLE_NAMES.ALBUM, insert_kv=kwargs)
+
+    def get_album_id(self, **where):  # searching
+        albums = self.get_album(**where)
+        if len(albums) > 1:
+            raise TooManyResults
+        return albums[0]['id']
+
+    def remove_album(self, **kwargs):
+        album_id = self.get_album_id(**kwargs)
+        try:
+            self.get_song(album_id=album_id)
+            raise CannotDeleteLinkedData
+        except NoResults:
+            pass
+        self._remove_generic_by_id(DatabaseInfo.TABLE_NAMES.ALBUM, album_id)
 
     def remove_song(self, **kwargs):
         """
         :param name: name of song to be removed
         :return: nothing
         """
-        song = self.get_one_song(where=kwargs)
+        song = self.get_one_song(**kwargs)
         self._remove_generic_by_id(DatabaseInfo.TABLE_NAMES.SONG, song)
 
     def _remove_generic_by_id(self, table, id):
@@ -209,57 +256,80 @@ class DatabaseHandler(object):
         self.cur.execute(sql, (id,))
 
     def list_songs(self):
-        # df = read sql
-        # print(df)
+        self.get_song('*')
         pass
 
-    def get_one_song(self, cols_to_select=('id',), where=None):
-        songs = self.get_song(cols_to_select, where)
+    def get_one_song(self,*cols, **where):
+        songs = self.get_song(*cols, **where)
         if len(songs) > 1:
             raise TooManyResults
-        return songs[0][cols_to_select]
+        return songs[0]
+
+    def get_song_id(self, **where):
+        return self.get_one_song('id', **where)['id']
 
     @staticmethod
     def get_key_val_list(dict_to_unpack):
         dict_as_list = [(k, v) for k, v in dict_to_unpack.items()]
         return zip(*dict_as_list)
 
-    def _generic_select(self, table, cols_to_select, where=None):
+    def _generic_select(self, table, *cols_to_select, **where):
         assert table in DatabaseInfo.TABLE_NAMES.ALL
-        if where is None:
-            ks, vs = (1,), (1,)
-        else:
-            ks, vs = self.get_key_val_list(where)
+        if len(cols_to_select) == 0:
+            cols_to_select = ('id',)
+        if len(where) == 0:
+            where = {'1': 1}  # select everything
+        ks, vs = self.get_key_val_list(where)
         sql = 'SELECT {} FROM {} WHERE {}=%s'.format(', '.join(cols_to_select), table, '=%s and '.join(ks))
         resp = self.cur.execute(sql, vs)
-#        self.cur.
         vals = resp.fetchall()
         if len(vals) == 0:
             raise NoResults
         return vals
 
-    def get_song(self, cols_to_select=('id',), where=None):  # searching
-        songs = self._generic_select(DatabaseInfo.TABLE_NAMES.SONG, cols_to_select, where)
+    def get_song(self, *cols, **where):  # searching
+        where = self._song_where_check(**where)
+        songs = self._generic_select(DatabaseInfo.TABLE_NAMES.SONG, *cols, **where)
         return songs
 
-    def get_album(self, cols_to_select=('id',), where=None):  # searching
-        albums = self._generic_select(DatabaseInfo.TABLE_NAMES.ALBUM, cols_to_select, where)
+    def _album_where_check(self, **kwargs):
+        if 'artist' in kwargs:
+            artist_name = kwargs.pop('artist')
+            artist_id = self.get_artist_id(name=artist_name)
+            kwargs.update({'artist_id':artist_id})
+        return kwargs
+
+    def get_album(self, *cols, **where):  # searching
+        where = self._album_where_check(**where)
+        albums = self._generic_select(DatabaseInfo.TABLE_NAMES.ALBUM, *cols, **where)
         return albums
 
-    def get_artist(self, cols_to_select=('id',), where=None):  # searching
-        artists = self._generic_select(DatabaseInfo.TABLE_NAMES.ARTIST, cols_to_select, where)
+    def get_artist(self, *cols, **where):  # searching
+        artists = self._generic_select(DatabaseInfo.TABLE_NAMES.ARTIST, *cols, **where)
         return artists
 
+    def get_artist_by_id(self, artist_id, *cols):  # searching
+        artists = self.get_artist(DatabaseInfo.TABLE_NAMES.ARTIST, *cols, id=artist_id)
+        if len(artists) > 1:
+            raise TooManyResults
+        return artists[0]
+
+    def get_artist_id(self, **where):  # searching
+        artists = self.get_artist(**where)
+        if len(artists) > 1:
+            raise TooManyResults
+        return artists[0]['id']
+
     def get_signature_type_by_id(self, id): # todo this but more abstractly
-        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, ['name'],{'id':id})
+        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, ('name',),{'id':id})
         return sig_type[0]['name']
 
     def get_signature_id_by_name(self, name):
-        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, ['id'],{'name':name})
+        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, **{'name': name})
         return sig_type[0]['id']
 
-    def get_song_by_title(self, title, cols_to_select=('id',)):
-        return self.get_song(cols_to_select, where={'title':title})
+    def get_song_by_name(self, name, *cols_to_select):
+        return self.get_song(*cols_to_select, name=name)
 
     def get_song_by_artist(self, artist, cols_to_select=('id',)):
         return self.get_song(cols_to_select, {'artist': artist})

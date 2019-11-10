@@ -26,6 +26,10 @@ class NoResults(Exception):
     """ No records found but we were lookig for something.... """
 
 
+class CannotDeleteLinkedData(Exception):
+    """ We cannot delete the entry because it is linked in other tables. """
+
+
 # Signal Processing Exceptions
 
 class NotWavData(Exception):
