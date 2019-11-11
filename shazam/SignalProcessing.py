@@ -6,6 +6,7 @@ from math import ceil
 NFFT = 2 ** 12
 INC = NFFT // 16
 
+logger = logging.getLogger('Shazam.SignalProcessing')
 
 class SignalProcessor(object):
     """
@@ -97,7 +98,7 @@ class SignalProcessorExactMatch(SignalProcessor):
                                     'signature': pxx})
 
 
-class SignalProcessorSmoothedPeriodogram(SignalProcessor): # should i enable smoothing on the rest? probably
+class SignalProcessorSmoothedPeriodogram(SignalProcessor):
     """
         Signal Processor class
         This class houses all of the functions which deal with processing signals
@@ -136,7 +137,7 @@ class SignalProcessorPeaksOnly(SignalProcessor):
     EIGHT_EVEN = ([i * INC*2, (i + 1) * INC*2] for i in range(8))
     EXP = ([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
 
-    def __init__(self, freq_ranges=EIGHT_EVEN, **kwargs):
+    def __init__(self, freq_ranges=EXP, **kwargs):
         super().__init__(**kwargs)
         self.freq_ranges = freq_ranges
         self.method = self.SIGNALTYPES.MAX_POWER_FREQ_BANDS

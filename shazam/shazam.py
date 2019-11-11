@@ -1,12 +1,24 @@
 from IO_methods import *
 import database_management as dbm
-import matching
-import logging
 from sqlalchemy import create_engine
-
 import SignalProcessing as sp
 import os
 import pandas as pd
+import logging
+
+logger = logging.getLogger('Shazam')
+
+fh = logging.FileHandler('logs/Shazam.log')
+fh.setLevel(logging.INFO)
+
+ch = logging.StreamHandler()
+ch.setLevel(logging.ERROR)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(Levelname)s - %(message)s')
+fh.setFormatter(formatter)
+ch.setFormatter(formatter)
+
+logger.addHandler(fh)
+logger.addFilter(ch)
 
 
 def initialize(SigProc=sp.SignalProcessorExactMatch):
@@ -73,4 +85,4 @@ def check_new_signature(snippet):
     return matches  # our list of findings
 
 if __name__ == '__main__':
-    initialize()
+    initialize(sp.SignalProcessorPeaksOnly)

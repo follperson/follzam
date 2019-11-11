@@ -367,22 +367,30 @@ class DatabaseHandler(object):
         """
         # n = len(sigp.windows)
         keys = list(sigp.signature_info.keys()) + ['song_id','method_id']
-        song_id = self.get_one_song(('id',), sigp.songinfo)
+        song_id = self.get_song_id(**sigp.songinfo)
         sig_type_id = self.get_signature_id_by_name(sigp.method)
         # update = []
 
         # put this into a tsql
-
+        print("begin loading of signature for ",sigp.songinfo)
         for i, time_index in enumerate(sigp.signature_info['time_index']):
-            for f, v in zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]):
-                sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
-                                                                   ('(' + '%s, ' * (len(keys) - 1) + '%s)'))
-                self.cur.execute(sql_base, [time_index, f, v, song_id, sig_type_id])
-                # update.append([time_index, f, v, song_id, sig_type_id])
-        # update = [[sigp.signature_info['time_index'], sigp.signature_info['frequency'][i],sigp.signature_info['signature'][i]] for i in range(sigp.signature_info['frequency'])]
-        # update = list(zip([list(sigp.signature_info[k]) for k in keys], [sig_type_id] * n, [song_id] * n))
-        # df = pd.DataFrame(update, columns=list(keys) + ['method_id','song_id'])
-        # df.to_sql(DatabaseInfo.TABLE_NAMES.SIGNATURE, con=self.con)
+            df = pd.DataFrame(zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]),
+                              columns=['frequency', 'signature'])
+            df['time_index'] = time_index
+            df['song_id'] = song_id
+            df['method_id'] = sig_type_id
+            update = tuple(tuple(i) for i in df[keys].values)
+            sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys), ', '.join(['(%s, %s, %s, %s, %s)']*len(update)))
+            self.cur.execute(sql_base, tuple(i for l in update for i in l))
+            # df.to_sql(DatabaseInfo.TABLE_NAMES.SIGNATURE, con=self.con, if_exists='append')
+            # for f, v in zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]):
+            #     sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
+            #                                                        ('(' + '%s, ' * (len(keys) - 1) + '%s)'))
+            #     self.cur.execute(sql_base, [time_index, f, v, song_id, sig_type_id])
+        #['signature'][i]] for i in range(sigp.signature_info['frequency'])]
+        #update = list(zip([list(sigp.signature_info[k]) for k in keys], [sig_type_id] * n, [song_id] * n))
+        #df = pd.DataFrame(update, columns=list(keys) + ['method_id','song_id'])
+        #df.to_sql(DatabaseInfo.TABLE_NAMES.SIGNATURE, con=self.con)
         #         sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),
         #                                                            ('(' + '%s, ' * (len(keys) - 1) + '%s)') * len(
         #                                                                update))
