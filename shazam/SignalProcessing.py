@@ -3,10 +3,11 @@ import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
 from math import ceil
-NFFT = 2 ** 12
+NFFT = 2 ** 9
 INC = NFFT // 16
 
 logger = logging.getLogger('Shazam.SignalProcessing')
+
 
 class SignalProcessor(object):
     """
@@ -37,14 +38,14 @@ class SignalProcessor(object):
         self.smoothed_windows = [] # do i need this??/ looks like periodogram implements a smoothing
         assert isinstance(self.window_size, (int, float))
         assert self.window_size > 0
-        self.window_centers = list(range(self.window_size, ceil(len(self.audio_array) // self.sample_freq)))
+        self.window_centers = list(range(
+            self.window_size // 2, ceil(len(self.audio_array) // self.sample_freq) - self.window_size // 2))
         self.signature_info = {'time_index': self.window_centers}
 
     def compute_signature(self):
         raise NotImplementedError
 
     def compute_periodogram(self,**kwargs):
-        """ Spectral Analysis """
         for window in self.smoothed_windows:
             f, pxx = ss.periodogram(window, fs=self.sample_freq, nfft=NFFT, **kwargs)
             self.periodograms.append((f, pxx))
@@ -71,10 +72,13 @@ class SignalProcessor(object):
         :return:
         """
         for window_index in self.window_centers:
-            window = self.audio_array[window_index - self.window_size // 2:
-                                      window_index + self.window_size // 2]
+            window = self.audio_array[(window_index - self.window_size // 2)*self.sample_freq:
+                                      (window_index + self.window_size // 2)*self.sample_freq]
             self.windows.append(window)
 
+    @staticmethod
+    def match(sig1, sig2):
+        raise NotImplementedError
 
 
 class SignalProcessorExactMatch(SignalProcessor):
@@ -122,22 +126,17 @@ class SignalProcessorSmoothedPeriodogram(SignalProcessor):
         self.signature_info.update({'frequency': f,
                                     'signature': pxx})
 
-    def compare_signature(self, other_signature):
-        distance = 0
-        for i,p in enumerate(other_signature):
-            if self.signature[i] == p: # very ugly a failing method, but works on perfect matches...?
-                return True
 
 
 class SignalProcessorPeaksOnly(SignalProcessor):
     """
         corresponds with ex 5 of the signature identification portion
     """
-    SIXTEEN_EVEN = ([i * INC, (i + 1) * INC] for i in range(15))
-    EIGHT_EVEN = ([i * INC*2, (i + 1) * INC*2] for i in range(8))
-    EXP = ([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
+    SIXTEEN_EVEN = tuple([i * INC, (i + 1) * INC] for i in range(16))
+    EIGHT_EVEN = tuple([i * INC*2, (i + 1) * INC*2] for i in range(8))
+    EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
 
-    def __init__(self, freq_ranges=EXP, **kwargs):
+    def __init__(self, freq_ranges=SIXTEEN_EVEN, **kwargs):
         super().__init__(**kwargs)
         self.freq_ranges = freq_ranges
         self.method = self.SIGNALTYPES.MAX_POWER_FREQ_BANDS
@@ -146,14 +145,21 @@ class SignalProcessorPeaksOnly(SignalProcessor):
         self.compute_windows()
         self.smoothed_windows = self.windows
         self.compute_periodogram()
-        for f,pxx in self.periodograms:
-            peaks = [0]*len(pxx)
+        orig_peaks = [0]*len(self.periodograms[0][1])
+        for f, pxx in self.periodograms:
+            peaks = orig_peaks.copy()
             for low, high in self.freq_ranges:
                 peaks[low + np.argmax(pxx[low:high])] = 1
             self.signature.append((f, peaks))
         freq, all_peaks = zip(*self.signature)
         self.signature_info.update({'frequency': freq,
                                     'signature': all_peaks})
+
+    @staticmethod
+    def match(signature_to_match, reference_signatures):
+        for signature in reference_signatures:
+            if signature_to_match == signature:
+                return True
 
 
 class SignalProcessorSpectrogram(SignalProcessor):

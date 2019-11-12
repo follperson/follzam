@@ -41,14 +41,14 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
     """ basically a dictionary to access some static database table names and such """
 
     class TABLE_NAMES:
-        GENRE = 'FOLLZAM_GENRE'
-        ALBUM = 'FOLLZAM_ALBUM'
-        ARTIST = 'FOLLZAM_ARTIST'
-        SONG = 'FOLLZAM_SONG'
-        SONG_DATA = 'FOLLZAM_SONGDATA'
-        SIGNATURE = 'FOLLZAM_SIGNATURE'
-        SIGNATURE_TYPES = 'FOLLZAM_SIGNATURETYPES' # in case we want to test out multiple signatures
-        FILE_TYPE = 'FOLLZAM_FILETYPE' # for binary data storage and spectrogram recreation
+        GENRE = 'follzam_genre'
+        ALBUM = 'follzam_album'
+        ARTIST = 'follzam_artist'
+        SONG = 'follzam_song'
+        SONG_DATA = 'follzam_songdata'
+        SIGNATURE = 'follzam_signature'
+        SIGNATURE_TYPES = 'follzam_signaturetypes' # in case we want to test out multiple signatures
+        FILE_TYPE = 'follzam_filetype' # for binary data storage and spectrogram recreation
 
         ALL = [GENRE, ALBUM, ARTIST, SONG, SONG_DATA, SIGNATURE, SIGNATURE_TYPES, FILE_TYPE]
 
@@ -144,6 +144,7 @@ def initialize_database(dbh=None,delete=False):  # maybe I should put this somew
     with open('assets/genres.sql','r') as genres:
         sql = genres.read()
     dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.GENRE), GENRES)
+
 
 class DatabaseHandler(object):
     """
@@ -321,18 +322,18 @@ class DatabaseHandler(object):
         return artists[0]['id']
 
     def get_signature_type_by_id(self, id): # todo this but more abstractly
-        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, ('name',),{'id':id})
+        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, 'name', id=id)
         return sig_type[0]['name']
 
     def get_signature_id_by_name(self, name):
-        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, **{'name': name})
+        sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, 'id', name=name)
         return sig_type[0]['id']
 
     def get_song_by_name(self, name, *cols_to_select):
         return self.get_song(*cols_to_select, name=name)
 
     def get_song_by_artist(self, artist, cols_to_select=('id',)):
-        return self.get_song(cols_to_select, {'artist': artist})
+        return self.get_song(cols_to_select, artist=artist)
 
     def summary(self):
         sql_songs = """SELECT count(id), artist.name 
@@ -344,12 +345,13 @@ class DatabaseHandler(object):
         print(self.execute_query(sql_songs))
         print(self.execute_query(sql_signatures))
 
-    def get_all_signatures(self, signature_type):
+    def get_signatures_by_type_name(self, name):
         """
             grab all the signatures of a given kind i.e.
         :return:
         """
-        pass
+        sig_id = self.get_signature_id_by_name(name)
+        return self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE, '*', method_id=sig_id)
 
     def view_spectrogram(self, song_id, period=(0, -1)):
         """
@@ -371,7 +373,7 @@ class DatabaseHandler(object):
         sig_type_id = self.get_signature_id_by_name(sigp.method)
         # update = []
 
-        # put this into a tsql
+        # todo put this into a tsql
         print("begin loading of signature for ",sigp.songinfo)
         for i, time_index in enumerate(sigp.signature_info['time_index']):
             df = pd.DataFrame(zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]),
@@ -382,6 +384,7 @@ class DatabaseHandler(object):
             update = tuple(tuple(i) for i in df[keys].values)
             sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys), ', '.join(['(%s, %s, %s, %s, %s)']*len(update)))
             self.cur.execute(sql_base, tuple(i for l in update for i in l))
+
             # df.to_sql(DatabaseInfo.TABLE_NAMES.SIGNATURE, con=self.con, if_exists='append')
             # for f, v in zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]):
             #     sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys),

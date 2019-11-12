@@ -67,6 +67,28 @@ def initialize(SigProc=sp.SignalProcessorExactMatch):
         # artists ids
 
 
+def load_signatures(SigProc=sp.SignalProcessorExactMatch):
+    sig_db = dbm.DatabaseHandler()
+    path_to_songs = 'assets/audio/songs'
+    songs = os.listdir(path_to_songs)
+    df_song_info = pd.DataFrame(data=songs, columns=['name'])
+    # todo make these using 'get id'
+    df_song_info['album_id'] = 1
+    df_song_info['artist_id'] = 1
+    df_song_info['filesource'] = df_song_info['name'].apply(lambda x: os.path.join(path_to_songs, x))
+    sig_db.cur.execute('DROP TABLE IF EXISTS ' + dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE + ' CASCADE;')
+    sig_db.cur.execute(dbm.DatabaseInfo.create_signature)
+    for i in df_song_info.index:
+        filesource, name, artist, album = df_song_info.loc[i, ['filesource', 'name', 'artist_id','album_id']]
+        rad = ReadAudioData(os.path.join(path_to_songs, name))  # transform song to wav
+        sigp = SigProc(audio_array=rad.array, sample_freq=rad.audio.frame_rate,songinfo={'artist_id':artist,
+                                                                                         'album_id':album,
+                                                                                         'filesource':filesource,
+                                                                                         'name':name})
+        sigp.compute_signature()
+        sig_db.load_signal(sigp)
+
+
 
 def check_new_signature(snippet):
     """
@@ -84,5 +106,12 @@ def check_new_signature(snippet):
         compare_new_signature(signature, 1)
     return matches  # our list of findings
 
+
+def main():
+    # initialize(sp.SignalProcessorPeaksOnly)
+    load_signatures(sp.SignalProcessorPeaksOnly)
+    pass
+
+
 if __name__ == '__main__':
-    initialize(sp.SignalProcessorPeaksOnly)
+    main()
