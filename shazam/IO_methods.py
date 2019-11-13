@@ -21,10 +21,9 @@ class ReadAudioData(object):
             filepath is None and stream is None), 'You must specify aa filepath or a stream'
         assert not (
             filepath is not None and stream is not None), 'You mus specify a filepath OR a stream, not both'
-
-        self.wav = None
-        self.ext = None
-
+        self.audio = None
+        self.array = None
+        self.darray = None
         if filepath is not None:
             self.read_file(filepath)
         else:

@@ -19,12 +19,14 @@ class SignalProcessor(object):
         FREQ_POWER_PAIRS = 'FREQ_POWER_PAIRS'
         FREQ_PEAKS = 'FREQ_PEAKS'
         MAX_POWER_FREQ_BANDS = 'MAX_POWER_FREQ_BANDS'
+        SPECTROGRAM = 'SPECTROGRAM'
         ALL = [
             EXACT_MATCH,
             SMOOTHED_PERIODOGRAM,
             FREQ_POWER_PAIRS,
             FREQ_PEAKS,
-            MAX_POWER_FREQ_BANDS]
+            MAX_POWER_FREQ_BANDS,
+            SPECTROGRAM]
 
     def __init__(self, audio_array, sample_freq, window_size=5, songinfo={}):
         self.songinfo = songinfo
@@ -45,7 +47,7 @@ class SignalProcessor(object):
     def compute_signature(self):
         raise NotImplementedError
 
-    def compute_periodogram(self,**kwargs):
+    def compute_periodogram(self, **kwargs):
         for window in self.smoothed_windows:
             f, pxx = ss.periodogram(window, fs=self.sample_freq, nfft=NFFT, **kwargs)
             self.periodograms.append((f, pxx))
@@ -53,13 +55,15 @@ class SignalProcessor(object):
     def compute_spectrogram(self, audio_array=None):
         if audio_array is None:
             audio_array = self.audio_array
-        spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, window=self.window_size)
+        spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, nfft=NFFT)
         if audio_array is None:
             self.spectrogram = spectrogram
         return spectrogram
 
     def plot_spectrogram(self, audio_array=None):
-        f,t,sxx = self.compute_spectrogram(audio_array)
+        if audio_array is None:
+            audio_array = self.audio_array
+        f, t, sxx = self.compute_spectrogram(audio_array)
         plt.pcolormesh(t, f, np.log(sxx))
         plt.ylabel('Frequency [Hz]')
         plt.xlabel('Time (sec)')
@@ -72,8 +76,8 @@ class SignalProcessor(object):
         :return:
         """
         for window_index in self.window_centers:
-            window = self.audio_array[(window_index - self.window_size // 2)*self.sample_freq:
-                                      (window_index + self.window_size // 2)*self.sample_freq]
+            window = self.audio_array[(window_index - self.window_size // 2) * self.sample_freq:
+                                      (window_index + self.window_size // 2) * self.sample_freq]
             self.windows.append(window)
 
     @staticmethod
@@ -127,7 +131,6 @@ class SignalProcessorSmoothedPeriodogram(SignalProcessor):
                                     'signature': pxx})
 
 
-
 class SignalProcessorPeaksOnly(SignalProcessor):
     """
         corresponds with ex 5 of the signature identification portion
@@ -169,18 +172,32 @@ class SignalProcessorSpectrogram(SignalProcessor):
     # might require some database adjustment because its time independent
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.method = SignalProcessor.SIGNALTYPES.EXACT_MATCH
+        self.method = SignalProcessor.SIGNALTYPES.SPECTROGRAM
         self.signature_info = {}
 
     def compute_signature(self):
         self.compute_spectrogram()
-        f, t, sxx = self.spectrogram
+        f, t, sxx = self.spectrogram  # sxx = nfft/2 + 1
         sxxt = np.transpose(sxx)
         peaks = [ss.find_peaks(x) for x in sxxt]
 
+        # make it two dimensional, or like, cluster groups?
+        peaks_fb = [] # or break it up by frequency bands
+        # this is a mtrix of zeros and ones for peak / not, at each time
+        # net portion - for each peak, cast out a net forward in time
+        # then order the number of the forward net of frequencies based on the power
+        #
+
+        # locality sensitivity hash
+
+
+        #
         # cant use the time window part
         #self.signature_info.update({'frequency': f, 'signature':''})
 
+    @staticmethod
+    def match(sig1, sig2):
+        pass
 
 class SignalProcessorFreqPeaks(SignalProcessor):
     """

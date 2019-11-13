@@ -5,7 +5,7 @@ from IO_methods import ReadAudioData
 
 
 def test_matching():
-    filesource= '../assets/audio/songs/01 Speed Trials.mp3'
+    filesource = '../assets/audio/songs/01 Speed Trials.mp3'
     rad = ReadAudioData(filesource)
     sp = SignalProcessorPeaksOnly(audio_array=rad.array, sample_freq=rad.audio.frame_rate)
     sp.compute_signature()
