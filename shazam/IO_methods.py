@@ -5,7 +5,7 @@ from pydub import AudioSegment
 import numpy as np
 VALID_FILE_TYPES = ['WAV','MP3','OGG','FLAC']
 # https://stackoverflow.com/a/53633178/9936238
-ex = r'assets/music/Blonde Redhead/Barragán/03  - Dripping.mp3'
+ex = r'assets/music/Blonde Redhead/Barragán/04  - Cat On Tin Roof.mp3'
 ex_url = "https://upload.wikimedia.org/wikipedia/en/0/0c/She_Loves_You_%28Beatles_song_-_sample%29.ogg"
 
 class ReadAudioData(object):
@@ -27,7 +27,7 @@ class ReadAudioData(object):
         if filepath is not None:
             self.read_file(filepath)
         else:
-            self.read_stream(stream)
+            self.read_url(stream)
 
         pass
 

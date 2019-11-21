@@ -38,7 +38,10 @@ def get_engine():
 
 class DatabaseInfo: # todo maybe put these into a sql folder and do away with the class.
                     # wondering how i would manage the formating though...
-    """ basically a dictionary to access some static database table names and such """
+    """ This Class is a persistent variable store for the SQL accessors.
+        It does not do anything by itself, but it is used by the other programs when creating the database,
+        or updating the tables.
+        """
 
     class TABLE_NAMES:
         GENRE = 'follzam_genre'
@@ -125,6 +128,12 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
 
 
 def initialize_database(dbh=None,delete=False):  # maybe I should put this somewhere else
+    """
+        This function will create and optionally delete the entire database schema.
+    :param dbh: database handler object - if we have already established a connection, just use that one
+    :param delete: boolean, True if you want to delete the database schema, False if not. Default False
+    :return: None
+    """
     if dbh is None:
         dbh = DatabaseHandler()
 
@@ -148,7 +157,7 @@ def initialize_database(dbh=None,delete=False):  # maybe I should put this somew
 
 class DatabaseHandler(object):
     """
-        class managing database update / retrieval procedure
+        This class managages the access and updates to SQL
     """
 
     def __init__(self):
@@ -254,7 +263,7 @@ class DatabaseHandler(object):
     def _remove_generic_by_id(self, table, id):
         assert table in DatabaseInfo.TABLE_NAMES.ALL
         sql = 'DELETE FROM {} WHERE id=%s'.format(table)
-        self.cur.execute(sql, (id,))
+        self.execute_query(sql, (id,))
 
     def list_songs(self):
         self.get_song('*')
@@ -282,7 +291,7 @@ class DatabaseHandler(object):
             where = {'1': 1}  # select everything
         ks, vs = self.get_key_val_list(where)
         sql = 'SELECT {} FROM {} WHERE {}=%s'.format(', '.join(cols_to_select), table, '=%s and '.join(ks))
-        resp = self.cur.execute(sql, vs)
+        resp = self.execute_query(sql, vs)
         vals = resp.fetchall()
         if len(vals) == 0:
             raise NoResults
@@ -383,4 +392,4 @@ class DatabaseHandler(object):
             df['method_id'] = sig_type_id
             update = tuple(tuple(i) for i in df[keys].values)
             sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys), ', '.join(['(%s, %s, %s, %s, %s)']*len(update)))
-            self.cur.execute(sql_base, tuple(i for l in update for i in l))
+            self.execute_query(sql_base, tuple(i for l in update for i in l))

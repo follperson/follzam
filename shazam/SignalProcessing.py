@@ -3,6 +3,7 @@ import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
 from math import ceil
+from itertools import islice
 NFFT = 2 ** 9
 INC = NFFT // 16
 
@@ -169,7 +170,8 @@ class SignalProcessorSpectrogram(SignalProcessor):
     """
         Implementation of spectrogram method for signature finding.
     """
-    # might require some database adjustment because its time independent
+    EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.method = SignalProcessor.SIGNALTYPES.SPECTROGRAM
@@ -177,23 +179,42 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
     def compute_signature(self):
         self.compute_spectrogram()
-        f, t, sxx = self.spectrogram  # sxx = nfft/2 + 1
-        sxxt = np.transpose(sxx)
-        peaks = [ss.find_peaks(x) for x in sxxt]
+        f, t, sxx = self.spectrogram
+        # first find the time wise and frequency band level peaks, using scipy
+        tpeaks = np.array(list(ss.find_peaks(sxx[:, i], width=2)[0] for i in range(sxx.shape[1])))
+        fpeaks = np.array(list(ss.find_peaks(sxx[i, :], width=2)[0] for i in range(sxx.shape[0])))
 
-        # make it two dimensional, or like, cluster groups?
-        peaks_fb = [] # or break it up by frequency bands
-        # this is a mtrix of zeros and ones for peak / not, at each time
-        # net portion - for each peak, cast out a net forward in time
-        # then order the number of the forward net of frequencies based on the power
-        #
+        # create a big zero matrix which we will fill in with the peaks, as it is easier to work with
+        # Wang calls them 'constellations', which we adopt
+        cons_freq = np.zeros(sxx.shape)
+        for i, peaks in enumerate(fpeaks):
+            for j in peaks:
+                cons_freq[i, j] = 1
+        cons_time = np.zeros(sxx.shape)
+        for i, peaks in enumerate(tpeaks):
+            for j in peaks:
+                cons_time[j, i] = 1
+        # we will multiply the constellation matrices element-wise. As they consist of {0,1}
+        # we know that we will get the intersection of time-band and element-band peaks only
+        cons_both = np.multiply(cons_freq, cons_time)
 
-        # locality sensitivity hash
-
-
-        #
-        # cant use the time window part
-        #self.signature_info.update({'frequency': f, 'signature':''})
+        # corresponding with the hashhing portion of the Wang paper, we will compute a signature
+        # for each identified peak
+        net_time = 2000  # forward propagation of net (look forward window)
+        net_freq = 20  # frequency propagation of net (above and below current)
+        signature = {}
+        for i in range(sxx.shape[1]):
+            if i % 1000 == 0: print(i)
+            cpeaks = np.where(cons_both[:, i] == 1)[0]
+            for freq in cpeaks:
+                freq_offset, time_offset = np.where(cons_both[(freq - net_freq):(freq + net_freq), i:i + net_time])
+                coord_pairs = list(zip(*(freq_offset + freq - net_freq, i + time_offset)))
+                ranked_coords = sorted(coord_pairs, key=lambda x: sxx[x], reverse=True)
+                ranked_freqs = [f[freq_index] for freq_index, time_index in ranked_coords
+                                if 20 < f[freq_index] < 20000]
+                # ranked_freqs = [freq_index for freq_index, time_index in ranked_coords] # is this better or worse?
+                ranked_freqs = ranked_freqs[:5]
+                signature[(i, freq)] = sum((i + 1) * 10 * j for i, j in enumerate(reversed(ranked_freqs)))
 
     @staticmethod
     def match(sig1, sig2):
