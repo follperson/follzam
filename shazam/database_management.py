@@ -2,7 +2,7 @@ import assets.db_access_info as credentials
 from IO_methods import VALID_FILE_TYPES
 import pandas as pd
 import sqlalchemy
-from SignalProcessing import *
+import SignalProcessing
 from exceptions import *
 GENRES = ['Indie Rock','Rap','Classical','Jazz']
 import numpy
@@ -144,15 +144,21 @@ def initialize_database(dbh=None,delete=False):  # maybe I should put this somew
 
     with open('assets/signature_types.sql','r') as sql_f:
         sql = sql_f.read()
-    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES), SignalProcessor.SIGNALTYPES.ALL)
+    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES,
+                               ', '.join(['(%s)']*len(SignalProcessing.SignalProcessor.SIGNALTYPES.ALL))),
+                    SignalProcessing.SignalProcessor.SIGNALTYPES.ALL)
 
     with open('assets/file_types.sql','r') as file_f:
         sql = file_f.read()
-    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.FILE_TYPE), VALID_FILE_TYPES)
+    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.FILE_TYPE,
+                               ', '.join(['(%s)']*len(VALID_FILE_TYPES))),
+                    VALID_FILE_TYPES)
 
     with open('assets/genres.sql','r') as genres:
         sql = genres.read()
-    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.GENRE), GENRES)
+    dbh.cur.execute(sql.format(DatabaseInfo.TABLE_NAMES.GENRE,
+                               ', '.join(['(%s)']*len(GENRES))),
+                    GENRES)
 
 
 class DatabaseHandler(object):
@@ -169,7 +175,7 @@ class DatabaseHandler(object):
 
     def execute_query(self, query, params=None):
         # try:
-        return self.cur.execute(query, vars=params)
+        return self.cur.execute(query, params)
         # except psql.errors.InFailedSQLTransaction:
         #     self.cur.execute('rollback')
         #     self.cur.execute(query, vars=params)

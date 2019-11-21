@@ -1,8 +1,10 @@
+import pandas as pd
 import logging
 import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
 from math import ceil
+import database_management
 from itertools import islice
 NFFT = 2 ** 9
 INC = NFFT // 16
@@ -57,8 +59,6 @@ class SignalProcessor(object):
         if audio_array is None:
             audio_array = self.audio_array
         spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, nfft=NFFT)
-        if audio_array is None:
-            self.spectrogram = spectrogram
         return spectrogram
 
     def plot_spectrogram(self, audio_array=None):
@@ -178,11 +178,11 @@ class SignalProcessorSpectrogram(SignalProcessor):
         self.signature_info = {}
 
     def compute_signature(self):
-        self.compute_spectrogram()
-        f, t, sxx = self.spectrogram
+        f, t, sxx = self.compute_spectrogram()
+
         # first find the time wise and frequency band level peaks, using scipy
-        tpeaks = np.array(list(ss.find_peaks(sxx[:, i], width=2)[0] for i in range(sxx.shape[1])))
-        fpeaks = np.array(list(ss.find_peaks(sxx[i, :], width=2)[0] for i in range(sxx.shape[0])))
+        tpeaks = np.array(list(ss.find_peaks(sxx[:, i], width=3)[0] for i in range(sxx.shape[1])))
+        fpeaks = np.array(list(ss.find_peaks(sxx[i, :], width=3)[0] for i in range(sxx.shape[0])))
 
         # create a big zero matrix which we will fill in with the peaks, as it is easier to work with
         # Wang calls them 'constellations', which we adopt
@@ -204,7 +204,6 @@ class SignalProcessorSpectrogram(SignalProcessor):
         net_freq = 20  # frequency propagation of net (above and below current)
         signature = {}
         for i in range(sxx.shape[1]):
-            if i % 1000 == 0: print(i)
             cpeaks = np.where(cons_both[:, i] == 1)[0]
             for freq in cpeaks:
                 freq_offset, time_offset = np.where(cons_both[(freq - net_freq):(freq + net_freq), i:i + net_time])
@@ -215,6 +214,46 @@ class SignalProcessorSpectrogram(SignalProcessor):
                 # ranked_freqs = [freq_index for freq_index, time_index in ranked_coords] # is this better or worse?
                 ranked_freqs = ranked_freqs[:5]
                 signature[(i, freq)] = sum((i + 1) * 10 * j for i, j in enumerate(reversed(ranked_freqs)))
+        self.signature = signature
+
+    def load_signature(self, dbc):
+        """
+            load the current signature
+        :param dbc: database connector object
+        :return:
+        """
+        # self.songinfo
+        # keys = list(self.signature_info.keys()) + ['song_id','method_id']
+        song_id = dbc.get_song_id(**self.songinfo)
+        sig_type_id = dbc.get_signature_id_by_name(self.method)
+        # update = []
+
+        print("begin loading of signature for ",self.songinfo)
+        df = pd.DataFrame.from_dict(self.signature, 'index',columns=['signature'])
+        df['method_id'] = sig_type_id
+        df['song_id'] = song_id
+        df['time_index'] = df.index.str[0]
+        df['time_index'] = df.index.str[1]
+
+        sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(
+            database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
+            ', '.join(df.columns),
+            ', '.join(['(%s, %s, %s, %s, %s)'] * len(df))
+        )
+        dbc.execute_query(sql_base, tuple(tuple(i) for i in df.values))
+        # for i, time_index in enumerate(sigp.signature_info['time_index']):
+        #
+        #     df = pd.DataFrame(zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]),
+        #                       columns=['frequency', 'signature'])
+        #     df['time_index'] = time_index
+        #     df['song_id'] = song_id
+        #     df['method_id'] = sig_type_id
+        #     update = tuple(tuple(i) for i in df[keys].values)
+        #     sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(
+        #         DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys), ', '.join(['(%s, %s, %s, %s, %s)']*len(update)))
+        #     dbc.execute_query(sql_base, tuple(i for l in update for i in l))
+
+
 
     @staticmethod
     def match(sig1, sig2):
