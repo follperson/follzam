@@ -93,7 +93,7 @@ class SignalProcessorExactMatch(SignalProcessor):
         Each class owns a wav segment
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, audio_array, sample_freq, **kwargs):
         super().__init__(**kwargs)
         self.method = SignalProcessor.SIGNALTYPES.EXACT_MATCH
 
@@ -117,7 +117,7 @@ class SignalProcessorSmoothedPeriodogram(SignalProcessor):
     HANNING = 'hann'
     BLACKMAN = 'blackman'
 
-    def __init__(self, window_type=HANNING, **kwargs):
+    def __init__(self, audio_array, sample_freq, window_type=HANNING, **kwargs):
         super().__init__(**kwargs)
         self.window_type = window_type
         self.method = self.SIGNALTYPES.SMOOTHED_PERIODOGRAM
@@ -140,7 +140,7 @@ class SignalProcessorPeaksOnly(SignalProcessor):
     EIGHT_EVEN = tuple([i * INC*2, (i + 1) * INC*2] for i in range(8))
     EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
 
-    def __init__(self, freq_ranges=SIXTEEN_EVEN, **kwargs):
+    def __init__(self, audio_array, sample_freq, freq_ranges=SIXTEEN_EVEN, **kwargs):
         super().__init__(**kwargs)
         self.freq_ranges = freq_ranges
         self.method = self.SIGNALTYPES.MAX_POWER_FREQ_BANDS
@@ -172,7 +172,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
     """
     EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
 
-    def __init__(self, **kwargs):
+    def __init__(self, audio_array, sample_freq, **kwargs):
         super().__init__(**kwargs)
         self.method = SignalProcessor.SIGNALTYPES.SPECTROGRAM
         self.signature_info = {}
@@ -213,7 +213,8 @@ class SignalProcessorSpectrogram(SignalProcessor):
                                 if 20 < f[freq_index] < 20000]
                 # ranked_freqs = [freq_index for freq_index, time_index in ranked_coords] # is this better or worse?
                 ranked_freqs = ranked_freqs[:5]
-                signature[(i, freq)] = sum((i + 1) * 10 * j for i, j in enumerate(reversed(ranked_freqs)))
+
+                signature[(i, freq)] = sum((i + 1) * 10 * int(j) for i, j in enumerate(reversed(ranked_freqs)))
         self.signature = signature
 
     def load_signature(self, dbc):
@@ -228,32 +229,16 @@ class SignalProcessorSpectrogram(SignalProcessor):
         sig_type_id = dbc.get_signature_id_by_name(self.method)
         # update = []
 
-        print("begin loading of signature for ",self.songinfo)
+        logger.info("begin loading of signature for %s" % self.songinfo)
         df = pd.DataFrame.from_dict(self.signature, 'index',columns=['signature'])
         df['method_id'] = sig_type_id
         df['song_id'] = song_id
         df['time_index'] = df.index.str[0]
-        df['time_index'] = df.index.str[1]
-
-        sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(
-            database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
-            ', '.join(df.columns),
-            ', '.join(['(%s, %s, %s, %s, %s)'] * len(df))
-        )
-        dbc.execute_query(sql_base, tuple(tuple(i) for i in df.values))
-        # for i, time_index in enumerate(sigp.signature_info['time_index']):
-        #
-        #     df = pd.DataFrame(zip(sigp.signature_info['frequency'][i], sigp.signature_info['signature'][i]),
-        #                       columns=['frequency', 'signature'])
-        #     df['time_index'] = time_index
-        #     df['song_id'] = song_id
-        #     df['method_id'] = sig_type_id
-        #     update = tuple(tuple(i) for i in df[keys].values)
-        #     sql_base = 'INSERT INTO {} ({}) VALUES {};'.format(
-        #         DatabaseInfo.TABLE_NAMES.SIGNATURE, ', '.join(keys), ', '.join(['(%s, %s, %s, %s, %s)']*len(update)))
-        #     dbc.execute_query(sql_base, tuple(i for l in update for i in l))
-
-
+        df['frequency'] = df.index.str[1]
+        df.to_sql(database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
+                  con=dbc.cur,
+                  if_exists='append',
+                  index=False)
 
     @staticmethod
     def match(sig1, sig2):

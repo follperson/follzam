@@ -52,6 +52,8 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
         SIGNATURE = 'follzam_signature'
         SIGNATURE_TYPES = 'follzam_signaturetypes' # in case we want to test out multiple signatures
         FILE_TYPE = 'follzam_filetype' # for binary data storage and spectrogram recreation
+        SIGNATURE_MATCH = 'follzam_signature_matches'
+        MATCH_ATTEMPT = 'follzam_match_attempts'
 
         ALL = [GENRE, ALBUM, ARTIST, SONG, SONG_DATA, SIGNATURE, SIGNATURE_TYPES, FILE_TYPE]
 
@@ -120,9 +122,24 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
         );
     """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_TYPES, TABLE_NAMES.SONG)
 
+    create_signature_match = """CREATE TABLE {} (
+        match_id integer REFERENCES {} (id) NOT NULL,
+        frequency integer NOT NULL,
+        signature integer NOT NULL,
+        PRIMARY KEY (match_id, frequency, signature) 
+        );
+    """.format(TABLE_NAMES.SIGNATURE_MATCH, TABLE_NAMES.MATCH_ATTEMPT)
+
+    create_match = """CREATE TABLE {} (
+        id SERIAL PRIMARY KEY,
+        timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        method_id integer REFERENCES {} (id) NOT NULL
+        );
+    """.format(TABLE_NAMES.MATCH_ATTEMPT, TABLE_NAMES.SIGNATURE_TYPES)
+
     create_full_schema = '\n '.join(
         [create_file_types, create_signature_types, create_artist, create_genre, create_album, create_song,
-         create_songdata, create_signature])
+         create_songdata, create_signature, create_match, create_signature_match])
 
     drop_tables = 'DROP TABLE IF EXISTS ' + ' CASCADE;\nDROP TABLE IF EXISTS '.join(TABLE_NAMES.ALL) + ' CASCADE;'
 
