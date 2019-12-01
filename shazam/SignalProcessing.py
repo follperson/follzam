@@ -1,3 +1,4 @@
+import time
 import pandas as pd
 import logging
 import scipy.signal as ss
@@ -5,9 +6,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 from math import ceil
 import database_management
-from itertools import islice
-NFFT = 2 ** 9
+from scipy.ndimage.filters import maximum_filter
+
+NFFT = 2 ** 12
 INC = NFFT // 16
+#https://stackoverflow.com/questions/51042870/wrong-spectrogram-when-using-scipy-signal-spectrogram?noredirect=1&lq=1
+
 
 logger = logging.getLogger('Shazam.SignalProcessing')
 
@@ -58,14 +62,15 @@ class SignalProcessor(object):
     def compute_spectrogram(self, audio_array=None):
         if audio_array is None:
             audio_array = self.audio_array
-        spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, nfft=NFFT)
+        spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, window='hamm', nfft=NFFT, nperseg=NFFT,
+                                     noverlap=NFFT * .5)
         return spectrogram
 
     def plot_spectrogram(self, audio_array=None):
         if audio_array is None:
             audio_array = self.audio_array
         f, t, sxx = self.compute_spectrogram(audio_array)
-        plt.pcolormesh(t, f, np.log(sxx))
+        plt.pcolormesh(t, f, np.log10(sxx))
         plt.ylabel('Frequency [Hz]')
         plt.xlabel('Time (sec)')
         plt.show()
@@ -171,19 +176,54 @@ class SignalProcessorSpectrogram(SignalProcessor):
         Implementation of spectrogram method for signature finding.
     """
     EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
-
+    TIME_NET_WINDOW = 2000  # forward propagation of net (look forward window)
+    FREQ_NET_WINDOW = 20  # frequency propagation of net (above and below current)
+    MIN_POWER = 10
     def __init__(self, audio_array, sample_freq, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__(audio_array=audio_array,
+                         sample_freq=sample_freq,
+                         **kwargs)
         self.method = SignalProcessor.SIGNALTYPES.SPECTROGRAM
         self.signature_info = {}
 
     def compute_signature(self):
         f, t, sxx = self.compute_spectrogram()
-
+        sxx = 10*np.log10(sxx)
         # first find the time wise and frequency band level peaks, using scipy
-        tpeaks = np.array(list(ss.find_peaks(sxx[:, i], width=3)[0] for i in range(sxx.shape[1])))
-        fpeaks = np.array(list(ss.find_peaks(sxx[i, :], width=3)[0] for i in range(sxx.shape[0])))
+        constellation = self.get_peaks(sxx, True)
+        constellation = self.get_peaks_alt(sxx, True)
+        # corresponding with the hashhing portion of the Wang paper, we will compute a signature
+        # for each identified peak
+        signature = {}
+        for i in range(sxx.shape[1]):  # iterate over time dimension
+            cpeaks = np.where(constellation[:, i] == 1)[0]  # subset to get the current peaks
+            for freq in cpeaks:
+                freq_offset, time_offset = np.where(
+                    constellation[(freq - self.FREQ_NET_WINDOW):(freq + self.FREQ_NET_WINDOW), i:i + self.TIME_NET_WINDOW])
 
+                coord_pairs = list(zip(*(freq_offset + freq - self.FREQ_NET_WINDOW, i + time_offset)))
+
+                ranked_coords = sorted(coord_pairs, key=lambda x: sxx[x], reverse=True)
+                ranked_freqs = [f[freq_index] for freq_index, time_index in ranked_coords
+                                if 20 < f[freq_index] < 20000]
+                if len(ranked_freqs) == 0:
+                    continue
+                ranked_freqs = ranked_freqs[:3]
+                # str freqs
+                #signature[(i, freq)] = ','.join([str(int(i)) for i in ranked_freqs[:3]])
+                # number sig
+                signature[(i, freq)] = sum((i + 1) * 10 * int(j) for i, j in enumerate(reversed(ranked_freqs)))
+        self.signature = signature
+
+    # n_homog = 10
+
+    #        tpeaks = list(
+    #           [mini + np.argmax(sxx[mini:maxi, i * 5:(i + 1) * 5].sum(axis=1)) for mini, maxi in FREQ_BANDS] for i in
+    #          range(sxx.shape[1] // 5))
+
+    def get_peaks(self, sxx, plot=False):
+        tpeaks = np.array(list(ss.find_peaks(sxx[:, i], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[1])))
+        fpeaks = np.array(list(ss.find_peaks(sxx[i, :], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[0])))
         # create a big zero matrix which we will fill in with the peaks, as it is easier to work with
         # Wang calls them 'constellations', which we adopt
         cons_freq = np.zeros(sxx.shape)
@@ -197,25 +237,28 @@ class SignalProcessorSpectrogram(SignalProcessor):
         # we will multiply the constellation matrices element-wise. As they consist of {0,1}
         # we know that we will get the intersection of time-band and element-band peaks only
         cons_both = np.multiply(cons_freq, cons_time)
+        t_peaks, f_peaks = np.where(cons_both)
+        if plot:
+            fig, ax = plt.subplots()
+            ax.imshow(sxx)
+            ax.scatter(f_peaks,t_peaks, s=.5, c='red')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Frequency')
+            ax.set_title("Spectrogram")
+            plt.gca().invert_yaxis()
+            plt.savefig('Testing time peaks constellation_overlay_{}.png'.format(str(time.time()).split('.')[0]))
+        return cons_both
 
-        # corresponding with the hashhing portion of the Wang paper, we will compute a signature
-        # for each identified peak
-        net_time = 2000  # forward propagation of net (look forward window)
-        net_freq = 20  # frequency propagation of net (above and below current)
-        signature = {}
-        for i in range(sxx.shape[1]):
-            cpeaks = np.where(cons_both[:, i] == 1)[0]
-            for freq in cpeaks:
-                freq_offset, time_offset = np.where(cons_both[(freq - net_freq):(freq + net_freq), i:i + net_time])
-                coord_pairs = list(zip(*(freq_offset + freq - net_freq, i + time_offset)))
-                ranked_coords = sorted(coord_pairs, key=lambda x: sxx[x], reverse=True)
-                ranked_freqs = [f[freq_index] for freq_index, time_index in ranked_coords
-                                if 20 < f[freq_index] < 20000]
-                # ranked_freqs = [freq_index for freq_index, time_index in ranked_coords] # is this better or worse?
-                ranked_freqs = ranked_freqs[:5]
+    def get_peaks_alt(self, sxx, plot=False):
+        fuzzy_sxx = maximum_filter(sxx, size=50)
+        constellation = (sxx == fuzzy_sxx) & (sxx > self.MIN_POWER)
+        if plot:
+            time_peaks, freq_peaks = np.where(constellation)
+            plt.pcolormesh(sxx)
+            plt.scatter(freq_peaks, time_peaks, s=.5, c='red')
+            plt.savefig('Testing time peaks constellation_new method_{}.png'.format(str(time.time()).split('.')[0]))
 
-                signature[(i, freq)] = sum((i + 1) * 10 * int(j) for i, j in enumerate(reversed(ranked_freqs)))
-        self.signature = signature
+        return constellation
 
     def load_signature(self, dbc):
         """
@@ -223,11 +266,8 @@ class SignalProcessorSpectrogram(SignalProcessor):
         :param dbc: database connector object
         :return:
         """
-        # self.songinfo
-        # keys = list(self.signature_info.keys()) + ['song_id','method_id']
         song_id = dbc.get_song_id(**self.songinfo)
         sig_type_id = dbc.get_signature_id_by_name(self.method)
-        # update = []
 
         logger.info("begin loading of signature for %s" % self.songinfo)
         df = pd.DataFrame.from_dict(self.signature, 'index',columns=['signature'])
@@ -235,6 +275,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
         df['song_id'] = song_id
         df['time_index'] = df.index.str[0]
         df['frequency'] = df.index.str[1]
+        df = df.loc[df['signature'] > 0]
         df.to_sql(database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
                   con=dbc.cur,
                   if_exists='append',
@@ -242,6 +283,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
     @staticmethod
     def match(sig1, sig2):
+
         pass
 
 class SignalProcessorFreqPeaks(SignalProcessor):
