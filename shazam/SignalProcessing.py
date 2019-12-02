@@ -42,9 +42,11 @@ class SignalProcessor(object):
         self.window_size = window_size
         self.periodograms = []
         self.signature = []
+        self.signature = None
         self.spectrogram = None
         self.windows = []
         self.smoothed_windows = [] # do i need this??/ looks like periodogram implements a smoothing
+        self.method = ''
         assert isinstance(self.window_size, (int, float))
         assert self.window_size > 0
         self.window_centers = list(range(
@@ -62,15 +64,17 @@ class SignalProcessor(object):
     def compute_spectrogram(self, audio_array=None):
         if audio_array is None:
             audio_array = self.audio_array
-        spectrogram = ss.spectrogram(audio_array, fs=self.sample_freq, window='hamm', nfft=NFFT, nperseg=NFFT,
+        f,t,sxx = ss.spectrogram(audio_array, fs=self.sample_freq, window='hamm', nfft=NFFT, nperseg=NFFT,
                                      noverlap=NFFT * .5)
-        return spectrogram
+        sxx = np.log10(sxx)
+        sxx[np.where(np.isnan(sxx) | np.isinf(sxx))] = 0
+        return f, t, sxx
 
     def plot_spectrogram(self, audio_array=None):
         if audio_array is None:
             audio_array = self.audio_array
         f, t, sxx = self.compute_spectrogram(audio_array)
-        plt.pcolormesh(t, f, np.log10(sxx))
+        plt.pcolormesh(t, f, sxx)
         plt.ylabel('Frequency [Hz]')
         plt.xlabel('Time (sec)')
         plt.show()
@@ -90,6 +94,24 @@ class SignalProcessor(object):
     def match(sig1, sig2):
         raise NotImplementedError
 
+    def load_signature(self, dbc):
+        """
+            load the current signature
+        :param dbc: database connector object
+        :return:
+        """
+        song_id = dbc.get_song_id(**self.songinfo)
+        sig_type_id = dbc.get_signature_id_by_name(self.method)
+
+        logger.info("begin loading of signature for %s" % self.songinfo)
+        df = pd.DataFrame(self.signature,columns=['time_index','frequency','signature'])
+        df['method_id'] = sig_type_id
+        df['song_id'] = song_id
+
+        df.to_sql(database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
+                  con=dbc.cur,
+                  if_exists='append',
+                  index=False)
 
 class SignalProcessorExactMatch(SignalProcessor):
     """
@@ -175,10 +197,14 @@ class SignalProcessorSpectrogram(SignalProcessor):
     """
         Implementation of spectrogram method for signature finding.
     """
+
+    N_STEPS_IN_SECOND = 21  # approximate number of time steps per second in the spectrogram
     EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
-    TIME_NET_WINDOW = 2000  # forward propagation of net (look forward window)
-    FREQ_NET_WINDOW = 20  # frequency propagation of net (above and below current)
-    MIN_POWER = 10
+    TIME_NET_WINDOW = N_STEPS_IN_SECOND*5  # time propagation of net
+    FREQ_NET_WINDOW = 30  # frequency propagation of net
+    MIN_POWER = 5  # minimum power for a peak
+    LOOK_FORWARD_WINDOW_START = N_STEPS_IN_SECOND  # how far ahead of the current time do we want to begin our peak net
+
     def __init__(self, audio_array, sample_freq, **kwargs):
         super().__init__(audio_array=audio_array,
                          sample_freq=sample_freq,
@@ -188,40 +214,34 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
     def compute_signature(self):
         f, t, sxx = self.compute_spectrogram()
-        sxx = 10*np.log10(sxx)
-        # first find the time wise and frequency band level peaks, using scipy
-        constellation = self.get_peaks(sxx, True)
-        constellation = self.get_peaks_alt(sxx, True)
-        # corresponding with the hashhing portion of the Wang paper, we will compute a signature
+        constellation = self.get_peaks(sxx, False)
+
+        # corresponding with the hashing portion of the Wang paper, we will compute a signature
         # for each identified peak
-        signature = {}
-        for i in range(sxx.shape[1]):  # iterate over time dimension
-            cpeaks = np.where(constellation[:, i] == 1)[0]  # subset to get the current peaks
+        signature = []
+        for i in range(sxx.shape[1] - self.LOOK_FORWARD_WINDOW_START):  # iterate over time dimension
+            cpeaks = np.where(constellation[:, i])[0]  # subset to get the current peaks
+
+            # for all the peaks that were found at the current time
             for freq in cpeaks:
+                # get all the peaks in the forward window
                 freq_offset, time_offset = np.where(
-                    constellation[(freq - self.FREQ_NET_WINDOW):(freq + self.FREQ_NET_WINDOW), i:i + self.TIME_NET_WINDOW])
+                    constellation[(freq - self.FREQ_NET_WINDOW):
+                                  (freq + self.FREQ_NET_WINDOW),
+                                  i + self.LOOK_FORWARD_WINDOW_START:
+                                  i + self.LOOK_FORWARD_WINDOW_START + self.TIME_NET_WINDOW])
 
-                coord_pairs = list(zip(*(freq_offset + freq - self.FREQ_NET_WINDOW, i + time_offset)))
+                for peak_freq, peak_time_offset in zip(*(freq - self.FREQ_NET_WINDOW + freq_offset,
+                                                         time_offset + self.LOOK_FORWARD_WINDOW_START)):
+                    c_sig = freq * 1000000 + peak_freq * 1000 + peak_time_offset
+                    if c_sig == 0:
+                        continue
+                    signature.append((i, freq, c_sig))
 
-                ranked_coords = sorted(coord_pairs, key=lambda x: sxx[x], reverse=True)
-                ranked_freqs = [f[freq_index] for freq_index, time_index in ranked_coords
-                                if 20 < f[freq_index] < 20000]
-                if len(ranked_freqs) == 0:
-                    continue
-                ranked_freqs = ranked_freqs[:3]
-                # str freqs
-                #signature[(i, freq)] = ','.join([str(int(i)) for i in ranked_freqs[:3]])
-                # number sig
-                signature[(i, freq)] = sum((i + 1) * 10 * int(j) for i, j in enumerate(reversed(ranked_freqs)))
+
         self.signature = signature
 
-    # n_homog = 10
-
-    #        tpeaks = list(
-    #           [mini + np.argmax(sxx[mini:maxi, i * 5:(i + 1) * 5].sum(axis=1)) for mini, maxi in FREQ_BANDS] for i in
-    #          range(sxx.shape[1] // 5))
-
-    def get_peaks(self, sxx, plot=False):
+    def get_peaks_deprecated(self, sxx, plot=False):
         tpeaks = np.array(list(ss.find_peaks(sxx[:, i], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[1])))
         fpeaks = np.array(list(ss.find_peaks(sxx[i, :], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[0])))
         # create a big zero matrix which we will fill in with the peaks, as it is easier to work with
@@ -249,7 +269,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
             plt.savefig('Testing time peaks constellation_overlay_{}.png'.format(str(time.time()).split('.')[0]))
         return cons_both
 
-    def get_peaks_alt(self, sxx, plot=False):
+    def get_peaks(self, sxx, plot=False):
         fuzzy_sxx = maximum_filter(sxx, size=50)
         constellation = (sxx == fuzzy_sxx) & (sxx > self.MIN_POWER)
         if plot:
@@ -260,26 +280,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
         return constellation
 
-    def load_signature(self, dbc):
-        """
-            load the current signature
-        :param dbc: database connector object
-        :return:
-        """
-        song_id = dbc.get_song_id(**self.songinfo)
-        sig_type_id = dbc.get_signature_id_by_name(self.method)
 
-        logger.info("begin loading of signature for %s" % self.songinfo)
-        df = pd.DataFrame.from_dict(self.signature, 'index',columns=['signature'])
-        df['method_id'] = sig_type_id
-        df['song_id'] = song_id
-        df['time_index'] = df.index.str[0]
-        df['frequency'] = df.index.str[1]
-        df = df.loc[df['signature'] > 0]
-        df.to_sql(database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
-                  con=dbc.cur,
-                  if_exists='append',
-                  index=False)
 
     @staticmethod
     def match(sig1, sig2):

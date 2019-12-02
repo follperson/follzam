@@ -20,11 +20,13 @@ def adapt_numpy_int64(numpy_int64):
 
 register_adapter(numpy.int64, adapt_numpy_int64)
 
+
 def get_access_info():
     return {'user':credentials.username,
             'password':credentials.password,
             'host':credentials.host,
             'dbname':'afollman'}
+
 
 def get_engine():
     info = get_access_info()
@@ -41,7 +43,7 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
     """ This Class is a persistent variable store for the SQL accessors.
         It does not do anything by itself, but it is used by the other programs when creating the database,
         or updating the tables.
-        """
+    """
 
     class TABLE_NAMES:
         GENRE = 'follzam_genre'
@@ -55,7 +57,7 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
         SIGNATURE_MATCH = 'follzam_signature_matches'
         MATCH_ATTEMPT = 'follzam_match_attempts'
 
-        ALL = [GENRE, ALBUM, ARTIST, SONG, SONG_DATA, SIGNATURE, SIGNATURE_TYPES, FILE_TYPE]
+        ALL = [GENRE, ALBUM, ARTIST, SONG, SONG_DATA, SIGNATURE, SIGNATURE_TYPES, FILE_TYPE, SIGNATURE_MATCH, MATCH_ATTEMPT]
 
     create_artist = """CREATE TABLE {} ( 
        id SERIAL PRIMARY KEY, 
@@ -109,33 +111,63 @@ class DatabaseInfo: # todo maybe put these into a sql folder and do away with th
         name text NOT NULL
         );
     """.format(TABLE_NAMES.SIGNATURE_TYPES)
+    #
+    # create_signature = """CREATE TABLE {} (
+    #             time_index integer NOT NULL,
+    #             frequency integer NOT NULL,
+    #             signature varchar(32) NOT NULL,
+    #             method_id integer REFERENCES {} (id) NOT NULL,
+    #             song_id integer REFERENCES {} (id) NOT NULL,
+    #             PRIMARY KEY (song_id, method_id, time_index, frequency)
+    #             );
+    #         """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_TYPES, TABLE_NAMES.SONG)
+    # create_signature_match = """CREATE TABLE {} (
+    #             match_id integer REFERENCES {} (id) NOT NULL,
+    #             frequency integer NOT NULL,
+    #             signature varchar(32) NOT NULL,
+    #             PRIMARY KEY (match_id, frequency, signature)
+    #             );
+    #         """.format(TABLE_NAMES.SIGNATURE_MATCH, TABLE_NAMES.MATCH_ATTEMPT)
 
-    # should I add and OPTIONS column to specify and arguments which got passed?
-    # maybe i can pass that to the signature types part...?
+    ## should I add and OPTIONS column to specify and arguments which got passed?
+    ## maybe i can pass that to the signature types part...?
+    # create_signature = """CREATE TABLE {} (
+    #     time_index integer NOT NULL,
+    #     frequency integer NOT NULL,
+    #     signature integer NOT NULL,
+    #     method_id integer REFERENCES {} (id) NOT NULL,
+    #     song_id integer REFERENCES {} (id) NOT NULL,
+    #     PRIMARY KEY (song_id, method_id, time_index, frequency)
+    #     );
+    # """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_TYPES, TABLE_NAMES.SONG)
+
     create_signature = """CREATE TABLE {} (
-        time_index integer NOT NULL,
-        frequency integer NOT NULL,
-        signature integer NOT NULL,
-        method_id integer REFERENCES {} (id) NOT NULL,
-        song_id integer REFERENCES {} (id) NOT NULL,
-        PRIMARY KEY (song_id, method_id, time_index, frequency)
-        );
-    """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_TYPES, TABLE_NAMES.SONG)
+            time_index integer NOT NULL,
+            frequency integer,
+            signature integer NOT NULL,
+            method_id integer REFERENCES {} (id) NOT NULL,
+            song_id integer REFERENCES {} (id) NOT NULL,
+            PRIMARY KEY (song_id, method_id, time_index, signature)
+            );
+        """.format(TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_TYPES, TABLE_NAMES.SONG)
+
 
     create_signature_match = """CREATE TABLE {} (
         match_id integer REFERENCES {} (id) NOT NULL,
         frequency integer NOT NULL,
         signature integer NOT NULL,
-        PRIMARY KEY (match_id, frequency, signature) 
+        PRIMARY KEY (match_id, frequency, signature)
         );
     """.format(TABLE_NAMES.SIGNATURE_MATCH, TABLE_NAMES.MATCH_ATTEMPT)
 
     create_match = """CREATE TABLE {} (
         id SERIAL PRIMARY KEY,
         timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        predicted_song_id integer REFERENCES {} (id),
+        true_song_id integer REFERENCES {} (id),
         method_id integer REFERENCES {} (id) NOT NULL
         );
-    """.format(TABLE_NAMES.MATCH_ATTEMPT, TABLE_NAMES.SIGNATURE_TYPES)
+    """.format(TABLE_NAMES.MATCH_ATTEMPT, TABLE_NAMES.SONG, TABLE_NAMES.SONG, TABLE_NAMES.SIGNATURE_TYPES)
 
     create_full_schema = '\n '.join(
         [create_file_types, create_signature_types, create_artist, create_genre, create_album, create_song,
@@ -156,7 +188,6 @@ def initialize_database(dbh=None,delete=False):  # maybe I should put this somew
 
     if delete:
         dbh.cur.execute(DatabaseInfo.drop_tables)
-    print(DatabaseInfo.create_full_schema)
     dbh.cur.execute(DatabaseInfo.create_full_schema)
 
     with open('assets/signature_types.sql','r') as sql_f:
@@ -266,6 +297,11 @@ class DatabaseHandler(object):
             raise TooManyResults
         return albums[0]['id']
 
+    def get_total_signatures_for_given_song(self, method_id, song_id):
+        query = 'SELECT count(time_index) FROM {} WHERE method_id=%s AND song_id=%s;'.format(
+            DatabaseInfo.TABLE_NAMES.SIGNATURE)
+        return self.con.execute(query, (method_id, song_id)).fetchone()[0]
+
     def remove_album(self, **kwargs):
         album_id = self.get_album_id(**kwargs)
         try:
@@ -291,6 +327,16 @@ class DatabaseHandler(object):
     def list_songs(self):
         self.get_song('*')
         pass
+
+    def get_formatted_song_info(self, song_id):
+        query = """SELECT {}.name, {}.name {}.name FROM {} 
+                    inner join on {}.artist_id = {}.id AND {}.album_id={}.id 
+                    where id=%s""".format(
+            DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ARTIST, DatabaseInfo.TABLE_NAMES.ALBUM,
+            DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ARTIST, DatabaseInfo.TABLE_NAMES.SONG,
+            DatabaseInfo.TABLE_NAMES.ALBUM, DatabaseInfo.TABLE_NAMES.SONG
+        )
+        return self.cur.execute(query, (song_id,)).fetchone()
 
     def get_one_song(self,*cols, **where):
         songs = self.get_song(*cols, **where)
