@@ -5,8 +5,10 @@ import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
 from math import ceil
-import database_management
 from scipy.ndimage.filters import maximum_filter
+import database_management as dbm
+
+
 
 NFFT = 2 ** 12
 INC = NFFT // 16
@@ -61,19 +63,26 @@ class SignalProcessor(object):
             f, pxx = ss.periodogram(window, fs=self.sample_freq, nfft=NFFT, **kwargs)
             self.periodograms.append((f, pxx))
 
-    def compute_spectrogram(self, audio_array=None):
-        if audio_array is None:
-            audio_array = self.audio_array
-        f,t,sxx = ss.spectrogram(audio_array, fs=self.sample_freq, window='hamm', nfft=NFFT, nperseg=NFFT,
-                                     noverlap=NFFT * .5)
+    def compute_spectrogram(self):
+        """
+            sompute the spectrogram using scipy.signal.spectrogram
+
+        :param audio_array:
+        :return:
+        """
+        f, t, sxx = ss.spectrogram(self.audio_array, fs=self.sample_freq, window='hann', nfft=NFFT, nperseg=NFFT,
+                                   noverlap=NFFT * .5)
         sxx = np.log10(sxx)
         sxx[np.where(np.isnan(sxx) | np.isinf(sxx))] = 0
-        return f, t, sxx
+        self.spectrogram = f, t, sxx
+        return self.spectrogram
 
-    def plot_spectrogram(self, audio_array=None):
-        if audio_array is None:
-            audio_array = self.audio_array
-        f, t, sxx = self.compute_spectrogram(audio_array)
+    def plot_spectrogram(self):
+        """
+            Plot out the spectrogram for the audio
+        :return:
+        """
+        f, t, sxx = self.compute_spectrogram()
         plt.pcolormesh(t, f, sxx)
         plt.ylabel('Frequency [Hz]')
         plt.xlabel('Time (sec)')
@@ -90,8 +99,7 @@ class SignalProcessor(object):
                                       (window_index + self.window_size // 2) * self.sample_freq]
             self.windows.append(window)
 
-    @staticmethod
-    def match(sig1, sig2):
+    def match(self, dbh):
         raise NotImplementedError
 
     def load_signature(self, dbc):
@@ -108,7 +116,7 @@ class SignalProcessor(object):
         df['method_id'] = sig_type_id
         df['song_id'] = song_id
 
-        df.to_sql(database_management.DatabaseInfo.TABLE_NAMES.SIGNATURE,
+        df.to_sql(dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE,
                   con=dbc.cur,
                   if_exists='append',
                   index=False)
@@ -195,7 +203,11 @@ class SignalProcessorPeaksOnly(SignalProcessor):
 
 class SignalProcessorSpectrogram(SignalProcessor):
     """
-        Implementation of spectrogram method for signature finding.
+        Spectrogram implementation of signature, based on Wang et al. (2003)
+
+        From spectrogram, we find the peaks in the data using a 2dimensional maximum filter.
+        From Peaks, we find near neighbors
+
     """
 
     N_STEPS_IN_SECOND = 21  # approximate number of time steps per second in the spectrogram
@@ -280,12 +292,46 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
         return constellation
 
+    def match(self, dbh):
+        method_id = dbh.get_signature_id_by_name(self.method)
 
+        dbh.cur.execute('INSERT INTO {} (method_id) VALUES (%s)'.format(dbm.DatabaseInfo.TABLE_NAMES.MATCH_ATTEMPT),
+                        method_id)
+        attempt_id = dbh.cur.execute('SELECT max(id) FROM {};'.format(
+            dbm.DatabaseInfo.TABLE_NAMES.MATCH_ATTEMPT)).fetchone()[0]
 
-    @staticmethod
-    def match(sig1, sig2):
+        df = pd.DataFrame(self.signature, columns=['time_index', 'frequency', 'signature'])
+        df['match_id'] = attempt_id
+        df[['signature', 'frequency', 'match_id']].drop_duplicates().to_sql(
+            dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE_MATCH, con=dbh.cur, if_exists='append', index=False)
+        match_query_text = """SELECT {}.time_index, {}.signature, {}.song_id, totals.total_signatures FROM {} 
+                    INNER JOIN {} ON {}.signature = {}.signature
+                    INNER JOIN (SELECT count(time_index) as total_signatures, song_id FROM {} 
+                                GROUP BY song_id) totals
+                                ON totals.song_id={}.song_id 
+                    WHERE {}.match_id = %s
+                    ORDER BY {}.signature;
+                """.format(
+            dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE, dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE,
+                           dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE, dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE_MATCH,
+                           dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE, dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE_MATCH,
+                           dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE, dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE,
+                           dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE, dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE_MATCH,
+                           dbm.DatabaseInfo.TABLE_NAMES.SIGNATURE)
+        df = pd.read_sql(match_query_text, dbh.con, params=(attempt_id,))
+        dfgb = df.groupby('song_id').agg({'time_index': 'count','total_signatures':'first'})
+        # for song_id in dfgb.index:
+        #     dfgb.loc[song_id, 'total signatures'] = dbh.get_total_signatures_for_given_song(method_id, song_id)
+        dfgb['weighting'] = dfgb['time_index'] / dfgb['total_signatures']
+        dfgb['P'] = dfgb['weighting'] / dfgb['weighting'].sum()
+        probability = dfgb['P'].max()
+        song_id = dfgb['P'].idxmax()
+        song_info = dbh.get_formatted_song_info(song_id)
+        update_prediction = '''UPDATE {} SET prediction=%s WHERE id=%s;'''.format(
+            dbm.DatabaseInfo.TABLE_NAMES.MATCH_ATTEMPT)
+        dbh.cur.execute(update_prediction, (song_id, attempt_id))
+        return song_info, probability
 
-        pass
 
 class SignalProcessorFreqPeaks(SignalProcessor):
     """

@@ -329,12 +329,14 @@ class DatabaseHandler(object):
         pass
 
     def get_formatted_song_info(self, song_id):
-        query = """SELECT {}.name, {}.name {}.name FROM {} 
-                    inner join on {}.artist_id = {}.id AND {}.album_id={}.id 
-                    where id=%s""".format(
-            DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ARTIST, DatabaseInfo.TABLE_NAMES.ALBUM,
-            DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ARTIST, DatabaseInfo.TABLE_NAMES.SONG,
-            DatabaseInfo.TABLE_NAMES.ALBUM, DatabaseInfo.TABLE_NAMES.SONG
+        query = """SELECT {}.name, {}.name, {}.name FROM {} 
+                    INNER JOIN {} on {}.artist_id = {}.id 
+                    INNER JOIN {} on {}.album_id={}.id 
+                    WHERE {}.id=%s""".format(
+            DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ARTIST, DatabaseInfo.TABLE_NAMES.ALBUM, DatabaseInfo.TABLE_NAMES.SONG,
+            DatabaseInfo.TABLE_NAMES.ARTIST, DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ARTIST,
+            DatabaseInfo.TABLE_NAMES.ALBUM, DatabaseInfo.TABLE_NAMES.SONG, DatabaseInfo.TABLE_NAMES.ALBUM
+            , DatabaseInfo.TABLE_NAMES.SONG
         )
         return self.cur.execute(query, (song_id,)).fetchone()
 
@@ -399,7 +401,7 @@ class DatabaseHandler(object):
             raise TooManyResults
         return artists[0]['id']
 
-    def get_signature_type_by_id(self, id): # todo this but more abstractly
+    def get_signature_type_by_id(self, id):
         sig_type = self._generic_select(DatabaseInfo.TABLE_NAMES.SIGNATURE_TYPES, 'name', id=id)
         return sig_type[0]['name']
 
