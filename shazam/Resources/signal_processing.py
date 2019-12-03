@@ -1,4 +1,4 @@
-from exceptions import NotWavData
+from follzam.exceptions import NotWavData
 import wave
 
 

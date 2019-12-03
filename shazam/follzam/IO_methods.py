@@ -3,13 +3,10 @@ import os
 import requests
 from pydub import AudioSegment
 import numpy as np
-VALID_FILE_TYPES = ['WAV','MP3','OGG','FLAC']
+import logging
+from follzam.exceptions import UnsupportedFileType
+logger = logging.getLogger(__name__)
 # https://stackoverflow.com/a/53633178/9936238
-ex = r'assets/music/Blonde Redhead/Barragán/04  - Cat On Tin Roof.mp3'
-ex_url = "https://upload.wikimedia.org/wikipedia/en/0/0c/She_Loves_You_%28Beatles_song_-_sample%29.ogg"
-ex_test = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\01 Speed Trials_4.mp3'
-ex_test_2 = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\01 Speed Trials_5.mp3'
-ex_test_full = r'C:\Users\follm\Documents\s750\assignments-follperson/assets/audio/songs/01 Speed Trials.mp3'
 
 
 class ReadAudioData(object):
@@ -19,21 +16,26 @@ class ReadAudioData(object):
         WAV structured data
     """
 
-    def __init__(self, filepath=None, stream=None):
-        # todo make this cleaner
-        assert not (
-            filepath is None and stream is None), 'You must specify aa filepath or a stream'
-        assert not (
-            filepath is not None and stream is not None), 'You mus specify a filepath OR a stream, not both'
+    def __init__(self, filepath=None, url=None):
+        """
+            read in audio file or audio url path using pydub, and transform it to an numpy array for processing
+        :param filepath: filepath to read. You must specify filepath OR url, not both
+        :param url: url path to read. You must specify filepath OR url, not both
+        """
+        if filepath is None and url is None:
+            raise UnsupportedFileType("You must specify either a file path or a stream url - you supplied neither")
+        if filepath is not None and url is not None:
+            raise UnsupportedFileType("You must specify either a file path or a stream url - you supplied both")
+
         self.audio = None
         self.array = None
         self.darray = None
         if filepath is not None:
+            logger.info('Loading from file path - {}'.format(filepath))
             self.read_file(filepath)
         else:
-            self.read_url(stream)
-
-        pass
+            logger.info('Loading from url - {}'.format(url))
+            self.read_url(url)
 
     def read_file(self, filepath):
         assert os.path.isfile(filepath)
@@ -62,8 +64,7 @@ class ReadAudioData(object):
         total_f = []
         for chunk in resp.iter_content(chunksize):
             total_f.append(chunk)
-            file_like = io.BytesIO(b''.join(total_f))
-            self._from_file_obj(file_like)
+            self._from_file_obj(io.BytesIO(b''.join(total_f)))
             # dispatch the searching. this will require some redesign. just leaving this in for a later todo
 
     def _from_file_obj(self, fobj):
@@ -71,6 +72,7 @@ class ReadAudioData(object):
         self.audio = AudioSegment.from_file(fobj)
         as_array = np.array(self.audio.get_array_of_samples())
         if self.audio .channels == 2:
-            as_array = as_array.reshape((-1,2))
+            as_array = as_array.reshape((-1, 2))
         self.darray = as_array
         self.array = np.mean(as_array, axis=1)
+        logger.info('Initialized audio')

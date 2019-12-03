@@ -1,5 +1,12 @@
-from ..IO_methods import ReadAudioData
-from ..exceptions import UnsupportedFileType
+from follzam.IO_methods import ReadAudioData
+from follzam.exceptions import UnsupportedFileType
+
+ex = r'assets/music/Blonde Redhead/Barragán/04  - Cat On Tin Roof.mp3'
+ex_url = "https://upload.wikimedia.org/wikipedia/en/0/0c/She_Loves_You_%28Beatles_song_-_sample%29.ogg"
+ex_test = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\01 Speed Trials_4.mp3'
+ex_test_2 = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\01 Speed Trials_5.mp3'
+ex_test_full = r'C:\Users\follm\Documents\s750\assignments-follperson/assets/audio/songs/01 Speed Trials.mp3'
+
 
 path_to_mp3 = '/path/to/mp3'
 path_to_flac = '/path/to/flac'

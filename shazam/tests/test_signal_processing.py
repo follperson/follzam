@@ -1,5 +1,5 @@
-from SignalProcessing import *
-from exceptions import NotWavData
+from follzam.SignalProcessing import *
+from follzam.exceptions import NotWavData
 import wave
 import pickle
 

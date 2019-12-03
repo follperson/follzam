@@ -1,5 +1,5 @@
-from database_management import *
-from exceptions import CannotAddDuplicateRecords, NoResults
+from follzam.database_management import *
+from follzam.exceptions import CannotAddDuplicateRecords, NoResults
 
 
 def test_insert_remove():
