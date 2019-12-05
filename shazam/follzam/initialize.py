@@ -1,5 +1,6 @@
 from follzam import VALID_FILE_TYPES
 from follzam.IO_methods import *
+from follzam.exceptions import NoResults
 import follzam.database_management as dbm
 import follzam.SignalProcessing as sp
 from follzam import TABLE_NAMES, GENRES, SIGNALTYPES, logging
@@ -8,9 +9,8 @@ import os
 import pandas as pd
 
 logger = logging.getLogger(__name__)
-logger.debug('in it!!')
 
-def initialize_database(dbh=None,delete=False):
+def make_database(dbh=None,delete=False):
     """
         This function will create and optionally delete the entire database schema.
     :param dbh: database handler object - if we have already established a connection, just use that one
@@ -44,7 +44,7 @@ def initialize_database(dbh=None,delete=False):
     dbh.cur.execute(sql.format(TABLE_NAMES.GENRE, ', '.join(['(%s)']*len(GENRES))), GENRES)
 
 
-def initialize(SigProc=sp.SignalProcessorSpectrogram):
+def initialize(signal_processor=sp.SignalProcessorSpectrogram):
     """
         Initialize the database, the
     :return:
@@ -52,35 +52,37 @@ def initialize(SigProc=sp.SignalProcessorSpectrogram):
     logger.info('Begin Initialization')
 
     sig_db = dbm.DatabaseHandler()
-    initialize_database(sig_db, True)
+    make_database(sig_db, True)
 
     df_song_info = load_starter_database_data(sig_db)
     logger.info('Begin Signature Loading')
     for i in df_song_info.index:
         filesource, name, artist, album = df_song_info.loc[i, ['filesource', 'name', 'artist_id','album_id']]
         rad = ReadAudioData(filesource)  # transform song to wav
-        sigp = SigProc(audio_array=rad.array,
+        sigp = signal_processor(audio_array=rad.array,
                        sample_freq=rad.audio.frame_rate,
                        songinfo={'artist_id': artist, 'album_id': album, 'filesource': filesource, 'name': name})
         sigp.compute_signature()
         sigp.load_signature(sig_db)
 
 
-def load_starter_database_data(sig_db):
-    df_artist_info = pd.read_csv('assets/metadata/artists.csv')
-    df_album_info = pd.read_csv('assets/metadata/album.csv')
+def load_starter_database_data(sig_db, load=True):
+    df_artist_info = pd.read_csv('../assets/metadata/artists.csv')
+    df_album_info = pd.read_csv('../assets/metadata/album.csv')
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.ARTIST))
-    df_artist_info.to_sql(name=TABLE_NAMES.ARTIST, con=sig_db.cur, if_exists='append', index=False)
+    if load:
+        df_artist_info.to_sql(name=TABLE_NAMES.ARTIST, con=sig_db.cur, if_exists='append', index=False)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.ALBUM))
     df_album_info['artist_id'] = df_album_info['artist_name'].apply(lambda x: sig_db.get_artist_id(name=x))
-    df_album_info[['name', 'year', 'artist_id', 'genre_id']].to_sql(name=TABLE_NAMES.ALBUM, con=sig_db.cur,
-                                                                    if_exists='append', index=False)
+    if load:
+        df_album_info[['name', 'year', 'artist_id', 'genre_id']].to_sql(name=TABLE_NAMES.ALBUM, con=sig_db.cur,
+                                                                        if_exists='append', index=False)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.SONG))
 
-    path_to_songs = 'assets/audio'
+    path_to_songs = '../assets/audio'
     songs = [os.path.join(root, f) for root, dirs, files in os.walk(path_to_songs) for f in files]
     df_song_info = pd.DataFrame(data=songs, columns=['filesource'])
     df_song_info = df_song_info[df_song_info['filesource'].str.split('.').str[-1].str.upper().isin(VALID_FILE_TYPES)]
@@ -89,38 +91,42 @@ def load_starter_database_data(sig_db):
     df_song_info['name'] = df_song_info['filesource'].str.split('\\').str[-1].str.split('.').str[:-1].str.join('.')
     df_song_info['album_id'] = df_song_info['album_name'].apply(lambda x: sig_db.get_album_id(name=x))
     df_song_info['artist_id'] = df_song_info['artist_name'].apply(lambda x: sig_db.get_artist_id(name=x))
-    df_song_info[['name', 'filesource', 'album_id', 'artist_id']].to_sql(name=TABLE_NAMES.SONG, con=sig_db.cur,
-                                                                         if_exists='append', index=False)
+    if load:
+        df_song_info[['name', 'filesource', 'album_id', 'artist_id']].to_sql(name=TABLE_NAMES.SONG, con=sig_db.cur,
+                                                                             if_exists='append', index=False)
 
     return df_song_info
 
 
-def load_signatures(signature_processor=sp.SignalProcessorSpectrogram):
+def continue_loading_signatures(signal_processor=sp.SignalProcessorSpectrogram):
+    """
+        Initialize the database, the
+    :return:
+    """
+    logger.info('Begin Initialization continuation')
     sig_db = dbm.DatabaseHandler()
-    path_to_songs = 'assets/audio/songs'
-    songs = os.listdir(path_to_songs)
-    df_song_info = pd.DataFrame(data=songs, columns=['name'])
-    df_song_info['album_id'] = 1
-    df_song_info['artist_id'] = 1
-    df_song_info['filesource'] = df_song_info['name'].apply(lambda x: os.path.join(path_to_songs, x))
-    sig_db.cur.execute('DROP TABLE IF EXISTS ' + TABLE_NAMES.SIGNATURE + ' CASCADE;')
-    sig_db.cur.execute(create_signature)
+    df_song_info = load_starter_database_data(sig_db, False)
+    logger.info('Begin Signature Loading')
     for i in df_song_info.index:
-        filesource, name, artist, album = df_song_info.loc[i, ['filesource', 'name', 'artist_id','album_id']]
-        rad = ReadAudioData(os.path.join(path_to_songs, name))  # transform song to wav
-        sigp = signature_processor(audio_array=rad.array, sample_freq=rad.audio.frame_rate, songinfo={'artist_id': artist,
-                                                                                          'album_id': album,
-                                                                                          'filesource': filesource,
-                                                                                          'name': name})
+        filesource, name, artist, album = df_song_info.loc[i, ['filesource', 'name', 'artist_id', 'album_id']]
+        try:
+            sig_db.get_one_song(artist_id=artist, album_id=album,name=name)
+            continue
+        except NoResults as good:
+            pass
+        rad = ReadAudioData(filesource)  # transform song to wav
+        sigp = signal_processor(audio_array=rad.array,
+                                sample_freq=rad.audio.frame_rate,
+                                songinfo={'artist_id': artist, 'album_id': album, 'filesource': filesource,
+                                          'name': name})
         sigp.compute_signature()
         sigp.load_signature(sig_db)
-
-
 
 
 def main():
     # initialize(sp.SignalProcessorSpectrogram)
     # load_signatures(sp.SignalProcessorSpectrogram)
+    continue_loading_signatures()
     pass
 
 

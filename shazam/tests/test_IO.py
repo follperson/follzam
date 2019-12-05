@@ -1,6 +1,5 @@
 from follzam.IO_methods import ReadAudioData
 from follzam.exceptions import UnsupportedFileType
-
 ex = r'assets/music/Blonde Redhead/Barragán/04  - Cat On Tin Roof.mp3'
 ex_url = "https://upload.wikimedia.org/wikipedia/en/0/0c/She_Loves_You_%28Beatles_song_-_sample%29.ogg"
 ex_test = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\01 Speed Trials_4.mp3'
@@ -16,7 +15,6 @@ path_to_ogg = '/path/to/ogg'
 path_to_non_file = '/fakepath'
 path_to_non_audio_file = '/path/to/non-audio-file'
 path_to_corrupt_file = '/path/to/corrupt-file'
-
 
 def test_read_mp3():
     obj = ReadAudioData(filepath=path_to_mp3)

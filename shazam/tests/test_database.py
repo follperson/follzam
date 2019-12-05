@@ -63,6 +63,8 @@ def test_insert_remove():
            (album_info['year'] == album_where['year']) & \
            (album_info['artist_id'] == artist_id)
 
+    # Test add/remove of song
+
     try:
         dbh.remove_song(**song_where)
     except NoResults:
@@ -78,11 +80,43 @@ def test_insert_remove():
         dbh.get_song(**song_where)
     except NoResults:
         pass
+
+    # Test Duplicate Records Errors
+
     try:
         dbh.add_song(**song_where)
+        dbh.add_song(**song_where)
+        raise Exception("Added duplicate records!! (song)")
+    except CannotAddDuplicateRecords:
+        pass
+    try:
+        dbh.add_album(**album_where)
+        raise Exception("Added duplicate records!! (album)")
+    except CannotAddDuplicateRecords:
+        pass
+    try:
+        dbh.add_artist(**artist_where)
+        raise Exception("Added duplicate records!! (artist)")
     except CannotAddDuplicateRecords:
         pass
 
+    # Test Linked Data Errors
 
+    try:
+        dbh.remove_album(**album_where)
+        raise Exception("Deleted Linked Album!!")
+    except CannotDeleteLinkedData:
+        pass
+    try:
+        dbh.remove_artist(**artist_where)
+        raise Exception("Deleted Linked Artist!!")
+    except CannotDeleteLinkedData:
+        pass
+
+    # Clear out test data
+
+    dbh.remove_song(**song_where)
+    dbh.remove_album(**album_where)
+    dbh.remove_artist(**artist_where)
 
 

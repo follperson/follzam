@@ -184,7 +184,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
         self.signature = signature
 
-    def get_peaks_deprecated(self, sxx, plot=False):
+    def _get_peaks_deprecated(self, sxx, plot=False):
         tpeaks = np.array(list(ss.find_peaks(sxx[:, i], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[1])))
         fpeaks = np.array(list(ss.find_peaks(sxx[i, :], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[0])))
         # create a big zero matrix which we will fill in with the peaks, as it is easier to work with
@@ -247,13 +247,14 @@ class SignalProcessorSpectrogram(SignalProcessor):
                            TABLE_NAMES.SIGNATURE)
         df_matches = pd.read_sql(match_query_text, dbh.con, params=(attempt_id,))
         df_song_matches = df_matches.groupby('song_id').agg({'time_index': 'count', 'total_signatures': 'first'})
+
+        # do a softmax function?
         df_song_matches['weighting'] = df_song_matches['time_index'] / df_song_matches['total_signatures']
         df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
         probability = df_song_matches['P'].max()
         song_id = df_song_matches['P'].idxmax()
         song_info = dbh.get_formatted_song_info(song_id)
-        update_prediction = '''UPDATE {} SET prediction=%s WHERE id=%s;'''.format(
-            TABLE_NAMES.MATCH_ATTEMPT)
+        update_prediction = '''UPDATE {} SET prediction=%s WHERE id=%s;'''.format(TABLE_NAMES.MATCH_ATTEMPT)
         dbh.cur.execute(update_prediction, (song_id, attempt_id))
         return song_info, probability, attempt_id
 

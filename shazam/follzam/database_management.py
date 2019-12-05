@@ -79,16 +79,12 @@ class DatabaseHandler(object):
                 logger.info('Substituting album ID for provided album name')
                 album = kwargs.pop('album')
                 album_id = self.get_album_id(**{'name': album})
-                if len(album_id) == 0:
-                    raise NoResults('No album id associated with {}'.format(album))
                 kwargs.update({'album_id':album_id})
         if 'artist' in kwargs:
             if not isinstance(kwargs['artist'], int):
                 logger.info('Substituting artist ID for provided artist name')
                 artist = kwargs.pop('artist')
                 artist_id = self.get_artist_id(**{'name':artist})
-                if len(artist_id) == 0:
-                    raise NoResults('No artist id associated with {}'.format(artist_id))
                 kwargs.update({'artist_id': artist_id})
         return kwargs
 
@@ -220,6 +216,12 @@ class DatabaseHandler(object):
         :return:
         """
         return self.get_one_song('id', **where)['id']
+
+
+    def update_signature_match_with_true_value(self, attempt_id,  **where):
+        song_id = self.get_song_id(**where)
+        self.execute_query('UPDATE {} SET true_song_id=%s WHERE id=%s'.format(TABLE_NAMES.MATCH_ATTEMPT),
+                           (song_id, attempt_id))
 
     @staticmethod
     def get_key_val_list(dict_to_unpack):
