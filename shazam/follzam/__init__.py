@@ -1,3 +1,4 @@
+__version__ = 1.0
 import logging.config
 VALID_FILE_TYPES = ['WAV', 'MP3', 'OGG', 'FLAC']
 GENRES = ['Indie Rock','Rap','Classical','Jazz']
@@ -19,7 +20,7 @@ logging.config.dictConfig({
             "level":'DEBUG',
             'class':'logging.FileHandler',
             'formatter':'default',
-            'filename':'../logs/Follzam.log'
+            'filename':'logs/Follzam.log'
         }
     },
     'root': {

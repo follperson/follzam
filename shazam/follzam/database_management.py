@@ -126,13 +126,10 @@ class DatabaseHandler(object):
         self._generic_insert(TABLE_NAMES.ARTIST, insert_kv=kwargs)
 
     def add_album(self, **kwargs):
-        if 'artist' in kwargs:
-            artist = kwargs.pop('artist')
-            artist_id = self.get_artist_id(name=artist)
-            kwargs.update({'artist_id': artist_id})
+        kwargs = self._album_where_check(**kwargs)
         try:
             self.get_album(**kwargs)
-            raise CannotAddDuplicateRecords('You are trying to add an artist which already exists in our database')
+            raise CannotAddDuplicateRecords('You are trying to add an album which already exists in our database')
         except NoResults as good:
             pass
         self._generic_insert(TABLE_NAMES.ALBUM, insert_kv=kwargs)
@@ -265,6 +262,14 @@ class DatabaseHandler(object):
             artist_name = kwargs.pop('artist')
             artist_id = self.get_artist_id(name=artist_name)
             kwargs.update({'artist_id':artist_id})
+        if 'genre' in kwargs:
+            genre = kwargs.pop('genre')
+            if genre is not None:
+                genre_id = self.get_genre_id(name=genre, add=True)
+                kwargs.update({'genre_id': genre_id})
+        if 'year' in kwargs:
+            if kwargs['year'] is None:
+                kwargs.pop('year')
         return kwargs
 
     def get_album(self, *cols, **where):  # searching
@@ -287,6 +292,19 @@ class DatabaseHandler(object):
         if len(artists) > 1:
             raise TooManyResults
         return artists[0]['id']
+
+    def get_genre_id(self, name, add=False):
+        if add:
+            try:
+                self._generic_select(TABLE_NAMES.GENRE, 'id', name=name)
+            except NoResults:
+                self._generic_insert(TABLE_NAMES.GENRE, {'name': name})
+        try:
+            genre_id = self._generic_select(TABLE_NAMES.GENRE, 'id', name=name)
+        except NoResults:
+            logger.error("Genre not found: {}".format(name))
+            return 1
+        return genre_id[0]['id']
 
     def get_signature_type_by_id(self, id):
         sig_type = self._generic_select(TABLE_NAMES.SIGNATURE_TYPES, 'name', id=id)

@@ -5,6 +5,7 @@ from pydub import AudioSegment
 import numpy as np
 import logging
 from follzam.exceptions import UnsupportedFileType
+from re import match
 logger = logging.getLogger(__name__)
 # https://stackoverflow.com/a/53633178/9936238
 
@@ -16,26 +17,21 @@ class ReadAudioData(object):
         WAV structured data
     """
 
-    def __init__(self, filepath=None, url=None):
+    def __init__(self, filepath_or_url):
         """
             read in audio file or audio url path using pydub, and transform it to an numpy array for processing
         :param filepath: filepath to read. You must specify filepath OR url, not both
         :param url: url path to read. You must specify filepath OR url, not both
         """
-        if filepath is None and url is None:
-            raise UnsupportedFileType("You must specify either a file path or a stream url - you supplied neither")
-        if filepath is not None and url is not None:
-            raise UnsupportedFileType("You must specify either a file path or a stream url - you supplied both")
-
         self.audio = None
         self.array = None
         self.darray = None
-        if filepath is not None:
-            logger.info('Loading from file path - {}'.format(filepath))
-            self.read_file(filepath)
+        if match('^https?://', filepath_or_url):
+            logger.info('Loading from url - {}'.format(filepath_or_url))
+            self.read_url(filepath_or_url)
         else:
-            logger.info('Loading from url - {}'.format(url))
-            self.read_url(url)
+            logger.info('Loading from file path - {}'.format(filepath_or_url))
+            self.read_file(filepath_or_url)
 
     def read_file(self, filepath):
         assert os.path.isfile(filepath)
@@ -65,11 +61,14 @@ class ReadAudioData(object):
         for chunk in resp.iter_content(chunksize):
             total_f.append(chunk)
             self._from_file_obj(io.BytesIO(b''.join(total_f)))
-            # dispatch the searching. this will require some redesign. just leaving this in for a later todo
+            # dispatch the searching. this will require some redesign and threading. just leaving this in for a later
 
     def _from_file_obj(self, fobj):
         """ turns file object into operatable np array"""
-        self.audio = AudioSegment.from_file(fobj)
+        try:
+            self.audio = AudioSegment.from_file(fobj)
+        except Exception:
+            raise UnsupportedFileType
         as_array = np.array(self.audio.get_array_of_samples())
         if self.audio .channels == 2:
             as_array = as_array.reshape((-1, 2))

@@ -28,18 +28,18 @@ def make_database(dbh=None,delete=False):
     dbh.cur.execute(create_full_schema)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.SIGNATURE_TYPES))
-    with open('assets/signature_types.sql','r') as sql_f:
+    with open('../assets/signature_types.sql','r') as sql_f:
         sql = sql_f.read()
     dbh.cur.execute(sql.format(TABLE_NAMES.SIGNATURE_TYPES, ', '.join(['(%s)'] * len(SIGNALTYPES.ALL))),
                     SIGNALTYPES.ALL)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.FILE_TYPE))
-    with open('assets/file_types.sql','r') as file_f:
+    with open('../assets/file_types.sql','r') as file_f:
         sql = file_f.read()
     dbh.cur.execute(sql.format(TABLE_NAMES.FILE_TYPE, ', '.join(['(%s)']*len(VALID_FILE_TYPES))), VALID_FILE_TYPES)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.GENRE))
-    with open('assets/genres.sql','r') as genres:
+    with open('../assets/genres.sql','r') as genres:
         sql = genres.read()
     dbh.cur.execute(sql.format(TABLE_NAMES.GENRE, ', '.join(['(%s)']*len(GENRES))), GENRES)
 
@@ -62,7 +62,11 @@ def initialize(signal_processor=sp.SignalProcessorSpectrogram):
         sigp = signal_processor(audio_array=rad.array,
                        sample_freq=rad.audio.frame_rate,
                        songinfo={'artist_id': artist, 'album_id': album, 'filesource': filesource, 'name': name})
-        sigp.compute_signature()
+        try:
+            sigp.compute_signature()
+        except sp.NoSignatures:
+            print("No Signature found for this song")
+            continue
         sigp.load_signature(sig_db)
 
 
@@ -124,9 +128,9 @@ def continue_loading_signatures(signal_processor=sp.SignalProcessorSpectrogram):
 
 
 def main():
-    # initialize(sp.SignalProcessorSpectrogram)
+    initialize(sp.SignalProcessorSpectrogram)
     # load_signatures(sp.SignalProcessorSpectrogram)
-    continue_loading_signatures()
+    # continue_loading_signatures()
     pass
 
 

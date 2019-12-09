@@ -4,13 +4,14 @@ import logging
 import scipy.signal as ss
 import matplotlib.pyplot as plt
 import numpy as np
+from .exceptions import NoSignatures
 from math import ceil
 from scipy.ndimage.filters import maximum_filter
 from follzam import TABLE_NAMES
 from follzam import SIGNALTYPES
 NFFT = 2 ** 12
 INC = NFFT // 16
-logger = logging.getLogger('Shazam.SignalProcessing')
+logger = logging.getLogger(__name__)
 
 # https://stackoverflow.com/questions/51042870/wrong-spectrogram-when-using-scipy-signal-spectrogram?noredirect=1&lq=1
 
@@ -59,7 +60,7 @@ class SignalProcessor(object):
         """
         f, t, sxx = ss.spectrogram(self.audio_array, fs=self.sample_freq, window='hann', nfft=NFFT, nperseg=NFFT,
                                    noverlap=NFFT * .5)
-        sxx = np.log10(sxx)
+        sxx = 10*np.log10(sxx)  # decibels
         sxx[np.where(np.isnan(sxx) | np.isinf(sxx))] = 0
         self.spectrogram = f, t, sxx
         return self.spectrogram
@@ -92,7 +93,7 @@ class SignalProcessor(object):
     def load_signature(self, dbh):
         """
             load the current signature
-        :param dbc: database connector object
+        :param dbh: database connector object
         :return:
         """
         song_id = dbh.get_song_id(**self.songinfo)
@@ -136,7 +137,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
     EXP = tuple([2**i, 2**(i+1)] for i in range(int(np.log2(NFFT))))
     TIME_NET_WINDOW = N_STEPS_IN_SECOND*5  # time propagation of net
     FREQ_NET_WINDOW = 30  # frequency propagation of net
-    MIN_POWER = 5  # minimum power for a peak
+    MIN_POWER = 10 # minimum power for a peak in decibels
     LOOK_FORWARD_WINDOW_START = N_STEPS_IN_SECOND  # how far ahead of the current time do we want to begin our peak net
 
     def __init__(self, audio_array, sample_freq, **kwargs):
@@ -157,12 +158,12 @@ class SignalProcessorSpectrogram(SignalProcessor):
         f, t, sxx = self.compute_spectrogram()  # spectrogram from scipy.signal
         logger.info("Begin compute peaks")
         constellation = self.get_peaks(sxx, False)  # sparse matrix of 0s and 1s
-
         logger.info("Iterating through peaks and computing signature for following peaks")
         # todo make this faster
         # corresponding with the hashing portion of the Wang paper, we will compute a signature
         # for each identified peak
         signature = []
+
         for i in range(sxx.shape[1] - self.LOOK_FORWARD_WINDOW_START):  # iterate over time dimension
             cpeaks = np.where(constellation[:, i])[0]  # subset to get the current peaks
 
@@ -179,14 +180,20 @@ class SignalProcessorSpectrogram(SignalProcessor):
                 for peak_freq, peak_time_offset in zip(
                         *(freq - self.FREQ_NET_WINDOW + freq_offset, time_offset + self.LOOK_FORWARD_WINDOW_START)):
                     c_sig = freq * 1000000 + peak_freq * 1000 + peak_time_offset  # integer hash
-                    if c_sig == 0: continue
+                    if c_sig == 0:
+                        continue
                     signature.append((i, freq, c_sig))
 
+        if len(signature) == 0:
+            logger.error("No signatures found for {}".format(str(self.songinfo)))
+            raise NoSignatures
         self.signature = signature
 
     def _get_peaks_deprecated(self, sxx, plot=False):
+        """ DEPRECATED (for reference) """
         tpeaks = np.array(list(ss.find_peaks(sxx[:, i], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[1])))
         fpeaks = np.array(list(ss.find_peaks(sxx[i, :], height=self.MIN_POWER, width=10)[0] for i in range(sxx.shape[0])))
+
         # create a big zero matrix which we will fill in with the peaks, as it is easier to work with
         # Wang calls them 'constellations', which we adopt
         cons_freq = np.zeros(sxx.shape)
@@ -197,6 +204,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
         for i, peaks in enumerate(tpeaks):
             for j in peaks:
                 cons_time[j, i] = 1
+
         # we will multiply the constellation matrices element-wise. As they consist of {0,1}
         # we know that we will get the intersection of time-band and element-band peaks only
         cons_both = np.multiply(cons_freq, cons_time)
@@ -215,7 +223,10 @@ class SignalProcessorSpectrogram(SignalProcessor):
         :param plot: boolean if we want to save the plot of the peak overlaid on the spectrogram
         :return: constellation of {0,1} if identified a peak. same size/shape as input sxx
         """
-        fuzzy_sxx = maximum_filter(sxx, size=50)
+        fuzzy_sxx = maximum_filter(sxx, size=50) # two dimension filter (the maximum value of a square of size size)
+
+        # find where the peak is located within the peak, and
+        #   the peak is of greater power than the minimum power we are considering as a peak
         constellation = (sxx == fuzzy_sxx) & (sxx > self.MIN_POWER)
         if plot:
             time_peaks, freq_peaks = np.where(constellation)
@@ -253,6 +264,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
         df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
         probability = df_song_matches['P'].max()
         song_id = df_song_matches['P'].idxmax()
+
         song_info = dbh.get_formatted_song_info(song_id)
         update_prediction = '''UPDATE {} SET prediction=%s WHERE id=%s;'''.format(TABLE_NAMES.MATCH_ATTEMPT)
         dbh.cur.execute(update_prediction, (song_id, attempt_id))
@@ -260,7 +272,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
 
 
 ##################################################################################################################
-#                    THE SIGNATURES BELOW ARE NOT YET IMPLEMENTED
+#                    THE SIGNATURES BELOW ARE NON-FUNCTIONING
 ##################################################################################################################
 
 

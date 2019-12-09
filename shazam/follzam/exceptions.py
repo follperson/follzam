@@ -38,3 +38,6 @@ class NotWavData(Exception):
 
 class WindowTooBig(Exception):
     """ The window size parraemeter is larger than the entire file!!"""
+
+class NoSignatures(Exception):
+    """ No Signatures found """
