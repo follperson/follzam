@@ -18,7 +18,7 @@ create_genre = """CREATE TABLE {} (
 
 create_album = """CREATE TABLE {} ( 
     id SERIAL PRIMARY KEY, 
-    name text,
+    name text UNIQUE,
     year integer,
     artist_id integer REFERENCES {} (id),
     genre_id integer REFERENCES {} (id)

@@ -1,8 +1,9 @@
 __version__ = 1.0
 import logging.config
+import os
 VALID_FILE_TYPES = ['WAV', 'MP3', 'OGG', 'FLAC']
 GENRES = ['Indie Rock','Rap','Classical','Jazz']
-
+basepath = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 logging.config.dictConfig({
     "version": 1,
     "formatters": {
@@ -20,7 +21,7 @@ logging.config.dictConfig({
             "level":'DEBUG',
             'class':'logging.FileHandler',
             'formatter':'default',
-            'filename':'logs/Follzam.log'
+            'filename':'%s/logs/Follzam.log' % basepath
         }
     },
     'root': {

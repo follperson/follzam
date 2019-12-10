@@ -61,7 +61,7 @@ class SignalProcessor(object):
         f, t, sxx = ss.spectrogram(self.audio_array, fs=self.sample_freq, window='hann', nfft=NFFT, nperseg=NFFT,
                                    noverlap=NFFT * .5)
         sxx = 10*np.log10(sxx)  # decibels
-        sxx[np.where(np.isnan(sxx) | np.isinf(sxx))] = 0
+        sxx[np.where(np.isnan(sxx) | np.isinf(sxx))] = 0  # if somehow the sxx was negative, we put the value to 0
         self.spectrogram = f, t, sxx
         return self.spectrogram
 
@@ -79,7 +79,6 @@ class SignalProcessor(object):
     def compute_windows(self):
         """
             take full initialized song and cut it up into a bunch of windows of given size
-        :param size: window size
         :return:
         """
         for window_index in self.window_centers:
@@ -107,7 +106,8 @@ class SignalProcessor(object):
         df.to_sql(TABLE_NAMES.SIGNATURE,
                   con=dbh.cur,
                   if_exists='append',
-                  index=False)
+                  index=False,
+                  method='multi')
 
     def match(self, dbh):
         raise NotImplementedError
@@ -120,7 +120,7 @@ class SignalProcessor(object):
         df = pd.DataFrame(self.signature, columns=['time_index', 'frequency', 'signature'])
         df['match_id'] = attempt_id
         df[['signature', 'frequency', 'match_id']].drop_duplicates().to_sql(
-            TABLE_NAMES.SIGNATURE_MATCH, con=dbh.cur, if_exists='append', index=False)
+            TABLE_NAMES.SIGNATURE_MATCH, con=dbh.cur, if_exists='append', index=False, method='multi')
         return attempt_id
 
 
@@ -139,6 +139,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
     FREQ_NET_WINDOW = 30  # frequency propagation of net
     MIN_POWER = 10 # minimum power for a peak in decibels
     LOOK_FORWARD_WINDOW_START = N_STEPS_IN_SECOND  # how far ahead of the current time do we want to begin our peak net
+    MIN_PROBABILITY_FOR_MATCH = .1  # minimum certainty threshold
 
     def __init__(self, audio_array, sample_freq, **kwargs):
         super().__init__(audio_array=audio_array,
@@ -159,7 +160,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
         logger.info("Begin compute peaks")
         constellation = self.get_peaks(sxx, False)  # sparse matrix of 0s and 1s
         logger.info("Iterating through peaks and computing signature for following peaks")
-        # todo make this faster
+
         # corresponding with the hashing portion of the Wang paper, we will compute a signature
         # for each identified peak
         signature = []
@@ -235,10 +236,11 @@ class SignalProcessorSpectrogram(SignalProcessor):
             plt.savefig('Testing time peaks constellation_new method_{}.png'.format(str(time.time()).split('.')[0]))
         return constellation
 
-    def match(self, dbh):
+    def match(self, dbh, accurate=False):
         """
             attempt to match the computed signature to the database.
         :param dbh: initialized DatabaseHandler class
+        :param accurate: quicker vs more accurate?
         :return: song name, artist name, album name, certainty of match, attempt _d
         """
         attempt_id = self.load_match_attempt(dbh)
@@ -256,19 +258,34 @@ class SignalProcessorSpectrogram(SignalProcessor):
                            TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE,
                            TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
                            TABLE_NAMES.SIGNATURE)
+        # something about signatures
+        f,t,sxx= self.spectrogram
         df_matches = pd.read_sql(match_query_text, dbh.con, params=(attempt_id,))
-        df_song_matches = df_matches.groupby('song_id').agg({'time_index': 'count', 'total_signatures': 'first'})
-
-        # do a softmax function?
-        df_song_matches['weighting'] = df_song_matches['time_index'] / df_song_matches['total_signatures']
-        df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
+        if accurate:  # approx .2 seconds slower per snippet (~10%)
+            df_matches['neighbors'] = df_matches.apply(lambda x: df_matches.loc[(df_matches['time_index'] < x['time_index'] + len(t)) &
+                                                                            (df_matches['time_index'] > x['time_index']) &
+                                                                            (df_matches['song_id'] == x['song_id'])].shape[0], axis=1)
+            df_song_matches = df_matches.groupby('song_id').agg({'neighbors': 'sum', 'total_signatures': 'first'})
+            df_song_matches['weighting'] = df_song_matches['neighbors'] / df_song_matches['total_signatures']
+            df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
+            # df_matches.to_csv('matches_%s.csv' % attempt_id)
+        else:  # approx 2 % more accurate
+            df_song_matches = df_matches.groupby('song_id').agg({'time_index': 'count', 'total_signatures': 'first'})
+            df_song_matches['weighting'] = df_song_matches['time_index'] / df_song_matches['total_signatures']
+            df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
         probability = df_song_matches['P'].max()
-        song_id = df_song_matches['P'].idxmax()
 
+        if probability < self.MIN_PROBABILITY_FOR_MATCH or pd.isnull(probability):
+            logger.info('No adequate matches found')
+            return -1, probability, attempt_id
+        logger.info('Match selected')
+        song_id = df_song_matches['P'].idxmax()
         song_info = dbh.get_formatted_song_info(song_id)
-        update_prediction = '''UPDATE {} SET prediction=%s WHERE id=%s;'''.format(TABLE_NAMES.MATCH_ATTEMPT)
+        update_prediction = '''UPDATE {} SET predicted_song_id=%s WHERE id=%s;'''.format(TABLE_NAMES.MATCH_ATTEMPT)
         dbh.cur.execute(update_prediction, (song_id, attempt_id))
         return song_info, probability, attempt_id
+
+
 
 
 ##################################################################################################################

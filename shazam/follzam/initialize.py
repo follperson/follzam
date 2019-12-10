@@ -1,4 +1,4 @@
-from follzam import VALID_FILE_TYPES
+from follzam import VALID_FILE_TYPES, basepath
 from follzam.IO_methods import *
 from follzam.exceptions import NoResults
 import follzam.database_management as dbm
@@ -28,18 +28,18 @@ def make_database(dbh=None,delete=False):
     dbh.cur.execute(create_full_schema)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.SIGNATURE_TYPES))
-    with open('../assets/signature_types.sql','r') as sql_f:
+    with open(os.path.join(basepath, 'assets/signature_types.sql'),'r') as sql_f:
         sql = sql_f.read()
     dbh.cur.execute(sql.format(TABLE_NAMES.SIGNATURE_TYPES, ', '.join(['(%s)'] * len(SIGNALTYPES.ALL))),
                     SIGNALTYPES.ALL)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.FILE_TYPE))
-    with open('../assets/file_types.sql','r') as file_f:
+    with open(os.path.join(basepath, 'assets/file_types.sql'),'r') as file_f:
         sql = file_f.read()
     dbh.cur.execute(sql.format(TABLE_NAMES.FILE_TYPE, ', '.join(['(%s)']*len(VALID_FILE_TYPES))), VALID_FILE_TYPES)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.GENRE))
-    with open('../assets/genres.sql','r') as genres:
+    with open(os.path.join(basepath, 'assets/genres.sql'),'r') as genres:
         sql = genres.read()
     dbh.cur.execute(sql.format(TABLE_NAMES.GENRE, ', '.join(['(%s)']*len(GENRES))), GENRES)
 
@@ -71,8 +71,8 @@ def initialize(signal_processor=sp.SignalProcessorSpectrogram):
 
 
 def load_starter_database_data(sig_db, load=True):
-    df_artist_info = pd.read_csv('../assets/metadata/artists.csv')
-    df_album_info = pd.read_csv('../assets/metadata/album.csv')
+    df_artist_info = pd.read_csv(os.path.join(basepath, 'assets/metadata/artists.csv'))
+    df_album_info = pd.read_csv(os.path.join(basepath, 'assets/metadata/album.csv'))
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.ARTIST))
     if load:
@@ -86,7 +86,7 @@ def load_starter_database_data(sig_db, load=True):
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.SONG))
 
-    path_to_songs = '../assets/audio'
+    path_to_songs = os.path.join(basepath, 'assets/audio')
     songs = [os.path.join(root, f) for root, dirs, files in os.walk(path_to_songs) for f in files]
     df_song_info = pd.DataFrame(data=songs, columns=['filesource'])
     df_song_info = df_song_info[df_song_info['filesource'].str.split('.').str[-1].str.upper().isin(VALID_FILE_TYPES)]

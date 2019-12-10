@@ -1,5 +1,5 @@
 import assets.db_access_info as credentials
-import pandas as pd
+from follzam import basepath
 import sqlalchemy
 from follzam.exceptions import *
 from follzam import TABLE_NAMES
@@ -7,6 +7,8 @@ import numpy
 from psycopg2.extensions import register_adapter, AsIs
 import logging
 logger = logging.getLogger(__name__)
+
+# todo: update, remove
 
 # https://github.com/openego/ego.io/commit/8e7c64e0e9868b9bbc3156c70f6c368cad427f1f
 def adapt_numpy_int64(numpy_int64):
@@ -63,7 +65,7 @@ class DatabaseHandler(object):
         """
         assert table in TABLE_NAMES.ALL, 'Table name {} is not in our database schema'.format(table)
         logger.info('Inserting into {} {} values'.format(table, len(insert_kv)))
-        ks, vs = self.get_key_val_list(insert_kv)
+        ks, vs = self._get_key_val_list(insert_kv)
         sql = 'INSERT INTO {} ({}) VALUES ({})'.format(table, ', '.join(ks), ', '.join(['%s']*len(vs)))
         self.cur.execute(sql, vs)
 
@@ -108,12 +110,14 @@ class DatabaseHandler(object):
         try:
             self.get_song(artist_id=artist_id)
             raise CannotDeleteLinkedData('We cannot remove an artist which has associated songs!')
-        except NoResults: pass
+        except NoResults:
+            pass
 
         try:
             self.get_album(artist_id=artist_id)
             raise CannotDeleteLinkedData('We cannot remove an artist which has associated albums!')
-        except NoResults: pass
+        except NoResults:
+            pass
 
         self._remove_generic_by_id(TABLE_NAMES.ARTIST, artist_id)
 
@@ -155,7 +159,7 @@ class DatabaseHandler(object):
 
     def remove_song(self, **kwargs):
         """
-        :param name: name of song to be removed
+        :param kwargs: keyword identified where clause
         :return: nothing
         """
         song = self.get_one_song(**kwargs)
@@ -169,9 +173,7 @@ class DatabaseHandler(object):
         :return: None
         """
         assert table in TABLE_NAMES.ALL
-
         logger.info('Deleting id {} from table {}'.format(id, table))
-
         sql = 'DELETE FROM {} WHERE id=%s'.format(table)
         self.execute_query(sql, (id,))
 
@@ -206,6 +208,12 @@ class DatabaseHandler(object):
             raise TooManyResults
         return songs[0]
 
+    def get_song_by_id(self, song_id, *cols):
+        return self.get_one_song(*cols, id=song_id)
+
+    def get_album_by_id(self, album_id, *cols):
+        return self.get_album(*cols, id=album_id)
+
     def get_song_id(self, **where):
         """
             simple method to get the song id given a generic where clause
@@ -214,14 +222,44 @@ class DatabaseHandler(object):
         """
         return self.get_one_song('id', **where)['id']
 
+    def _generic_update(self, table, id, **update):
+        """
+            base select accessor function. some checks on cols and where clause
+        :param table: table to access
+        :param cols_to_select:
+        :param where:
+        :return:
+        """
+        assert table in TABLE_NAMES.ALL, 'Table name {} is not valid'.format(table)
+        assert len(update) > 0, 'No update keywords specified'
+
+        logger.info("Updating id={} for table={}".format(id, table))
+        ks, vs = self._get_key_val_list(update)
+        sql = 'UPDATE {} SET {}=%s WHERE id=%s'.format(table, '=%s, '.join(ks))
+        self.execute_query(sql, vs + (id,))
+
+    def update_song(self, song_id, **update):
+        self._song_where_check(**update)  # make sure that the update clause is valid
+        self.get_song_by_id(song_id=song_id)  # make sure our song is in the database
+        self._generic_update(TABLE_NAMES.SONG, song_id, **update)
+
+    def update_artist(self, artist_id, **update):
+        self.get_artist_by_id(artist_id)  # make sure artist in table
+        self._generic_update(TABLE_NAMES.ARTIST, artist_id, **update)
+
+    def update_album(self, album_id, **update):
+        self._album_where_check(**update)  # make sure album update is valid
+        self.get_album_by_id(album_id)  # make sure album is in database
+        self._generic_update(TABLE_NAMES.ALBUM, album_id, **update)
 
     def update_signature_match_with_true_value(self, attempt_id,  **where):
         song_id = self.get_song_id(**where)
-        self.execute_query('UPDATE {} SET true_song_id=%s WHERE id=%s'.format(TABLE_NAMES.MATCH_ATTEMPT),
-                           (song_id, attempt_id))
+        self._generic_update(TABLE_NAMES.MATCH_ATTEMPT, attempt_id, true_song_id=song_id)
+        # self.execute_query('UPDATE {} SET true_song_id=%s WHERE id=%s'.format(TABLE_NAMES.MATCH_ATTEMPT),
+        #                    (song_id, attempt_id))
 
     @staticmethod
-    def get_key_val_list(dict_to_unpack):
+    def _get_key_val_list(dict_to_unpack):
         """
             unpacks a dictionary so it is two lists of equal length with values assoicated by index.
             needed to load to sql
@@ -244,7 +282,7 @@ class DatabaseHandler(object):
             cols_to_select = ('id',)
         if len(where) == 0:  # if no where clause specified then we assume we want to grab everything
             where = {'1': 1}
-        ks, vs = self.get_key_val_list(where)
+        ks, vs = self._get_key_val_list(where)
         sql = 'SELECT {} FROM {} WHERE {}=%s'.format(', '.join(cols_to_select), table, '=%s and '.join(ks))
         resp = self.execute_query(sql, vs)
         vals = resp.fetchall()
