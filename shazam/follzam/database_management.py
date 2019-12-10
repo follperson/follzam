@@ -218,17 +218,17 @@ class DatabaseHandler(object):
         """
             simple method to get the song id given a generic where clause
         :param where:
-        :return:
+        :return: song_id
         """
         return self.get_one_song('id', **where)['id']
 
     def _generic_update(self, table, id, **update):
         """
-            base select accessor function. some checks on cols and where clause
+            base update function. unpacks **update into keys and values
         :param table: table to access
-        :param cols_to_select:
-        :param where:
-        :return:
+        :param id: the id to be updated (table dcependent)
+        :param update: keyword arguments of the  columns and values to be updated
+        :return: None
         """
         assert table in TABLE_NAMES.ALL, 'Table name {} is not valid'.format(table)
         assert len(update) > 0, 'No update keywords specified'
@@ -239,24 +239,46 @@ class DatabaseHandler(object):
         self.execute_query(sql, vs + (id,))
 
     def update_song(self, song_id, **update):
-        self._song_where_check(**update)  # make sure that the update clause is valid
+        """
+            update a song given update keyword arguments
+        :param song_id: song_id to be updated
+        :param update: update keyword arguments
+        :return: None
+        """
+        update = self._song_where_check(**update)  # make sure that the update clause is valid
         self.get_song_by_id(song_id=song_id)  # make sure our song is in the database
         self._generic_update(TABLE_NAMES.SONG, song_id, **update)
 
     def update_artist(self, artist_id, **update):
+        """
+            update an artist given update keyword arguments
+        :param artist_id: id of artist to be updated
+        :param update: update keyword arguments
+        :return: None
+        """
         self.get_artist_by_id(artist_id)  # make sure artist in table
         self._generic_update(TABLE_NAMES.ARTIST, artist_id, **update)
 
     def update_album(self, album_id, **update):
-        self._album_where_check(**update)  # make sure album update is valid
+        """
+            update an album given update keyword arguments
+        :param album_id: song_id to be updated
+        :param update: update keyword arguments
+        :return: None
+        """
+        update = self._album_where_check(**update)  # make sure album update is valid
         self.get_album_by_id(album_id)  # make sure album is in database
         self._generic_update(TABLE_NAMES.ALBUM, album_id, **update)
 
     def update_signature_match_with_true_value(self, attempt_id,  **where):
+        """
+            for use when we know the true value (helpful for diagnostics and comparing methods)
+        :param attempt_id: match_attempt id
+        :param where: where clause for true song value
+        :return: None
+        """
         song_id = self.get_song_id(**where)
         self._generic_update(TABLE_NAMES.MATCH_ATTEMPT, attempt_id, true_song_id=song_id)
-        # self.execute_query('UPDATE {} SET true_song_id=%s WHERE id=%s'.format(TABLE_NAMES.MATCH_ATTEMPT),
-        #                    (song_id, attempt_id))
 
     @staticmethod
     def _get_key_val_list(dict_to_unpack):
@@ -291,11 +313,23 @@ class DatabaseHandler(object):
         return vals
 
     def get_song(self, *cols, **where):
+        """
+            generic get columns from song table where the where clause is met
+        :param cols: cols to select
+        :param where: key word arguments
+        :return: songs
+        """
+
         where = self._song_where_check(**where)
         songs = self._generic_select(TABLE_NAMES.SONG, *cols, **where)
         return songs
 
     def _album_where_check(self, **kwargs):
+        """
+            make sure that the keyword arguments in the album_where clause are valid. clean up common errors
+        :param kwargs:
+        :return:
+        """
         if 'artist' in kwargs:
             artist_name = kwargs.pop('artist')
             artist_id = self.get_artist_id(name=artist_name)
@@ -310,7 +344,7 @@ class DatabaseHandler(object):
                 kwargs.pop('year')
         return kwargs
 
-    def get_album(self, *cols, **where):  # searching
+    def get_album(self, *cols, **where):
         where = self._album_where_check(**where)
         albums = self._generic_select(TABLE_NAMES.ALBUM, *cols, **where)
         return albums
@@ -325,18 +359,28 @@ class DatabaseHandler(object):
             raise TooManyResults
         return artists[0]
 
-    def get_artist_id(self, **where):  # searching
+    def get_artist_id(self, **where):
         artists = self.get_artist(**where)
         if len(artists) > 1:
             raise TooManyResults
         return artists[0]['id']
 
+    def add_genre(self, name):
+        try:
+            self._generic_select(TABLE_NAMES.GENRE, 'id', name=name)
+        except NoResults:
+            self._generic_insert(TABLE_NAMES.GENRE, {'name': name})
+
     def get_genre_id(self, name, add=False):
+        """
+            get the genre id from the name of the genre. If add is true then we add it to the database
+        :param name: genre name
+        :param add: bool - if True then we put ensure the genre is in the database
+        :return: genre id
+        """
         if add:
-            try:
-                self._generic_select(TABLE_NAMES.GENRE, 'id', name=name)
-            except NoResults:
-                self._generic_insert(TABLE_NAMES.GENRE, {'name': name})
+            # add the genre to the database
+            self.add_genre(name)
         try:
             genre_id = self._generic_select(TABLE_NAMES.GENRE, 'id', name=name)
         except NoResults:
@@ -359,6 +403,10 @@ class DatabaseHandler(object):
         return self.get_song(cols_to_select, artist=artist)
 
     def summary(self):
+        """
+            print our some basic information about our tables
+        :return:
+        """
         sql_songs = """SELECT count(id), artist.name 
                         from {}
                         inner join 
@@ -375,11 +423,3 @@ class DatabaseHandler(object):
         """
         sig_id = self.get_signature_id_by_name(name)
         return self._generic_select(TABLE_NAMES.SIGNATURE, '*', method_id=sig_id)
-
-    def view_spectrogram(self, song_id, period=(0, -1)):
-        """
-            select all the periodograms associated with song_id, and then
-        :param song_id:
-        :param period:
-        :return:
-        """

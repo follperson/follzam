@@ -140,6 +140,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
     MIN_POWER = 10 # minimum power for a peak in decibels
     LOOK_FORWARD_WINDOW_START = N_STEPS_IN_SECOND  # how far ahead of the current time do we want to begin our peak net
     MIN_PROBABILITY_FOR_MATCH = .1  # minimum certainty threshold
+    MIN_NEIGHBORS_FOR_MATCH = 10
 
     def __init__(self, audio_array, sample_freq, **kwargs):
         super().__init__(audio_array=audio_array,
@@ -236,7 +237,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
             plt.savefig('Testing time peaks constellation_new method_{}.png'.format(str(time.time()).split('.')[0]))
         return constellation
 
-    def match(self, dbh, accurate=False):
+    def match(self, dbh):
         """
             attempt to match the computed signature to the database.
         :param dbh: initialized DatabaseHandler class
@@ -261,21 +262,19 @@ class SignalProcessorSpectrogram(SignalProcessor):
         # something about signatures
         f,t,sxx= self.spectrogram
         df_matches = pd.read_sql(match_query_text, dbh.con, params=(attempt_id,))
-        if accurate:  # approx .2 seconds slower per snippet (~10%)
-            df_matches['neighbors'] = df_matches.apply(lambda x: df_matches.loc[(df_matches['time_index'] < x['time_index'] + len(t)) &
-                                                                            (df_matches['time_index'] > x['time_index']) &
-                                                                            (df_matches['song_id'] == x['song_id'])].shape[0], axis=1)
-            df_song_matches = df_matches.groupby('song_id').agg({'neighbors': 'sum', 'total_signatures': 'first'})
-            df_song_matches['weighting'] = df_song_matches['neighbors'] / df_song_matches['total_signatures']
-            df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
-            # df_matches.to_csv('matches_%s.csv' % attempt_id)
-        else:  # approx 2 % more accurate
-            df_song_matches = df_matches.groupby('song_id').agg({'time_index': 'count', 'total_signatures': 'first'})
-            df_song_matches['weighting'] = df_song_matches['time_index'] / df_song_matches['total_signatures']
-            df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
+        if df_matches.empty:
+            logger.info('No Matching signatures found')
+            return -1, 0, attempt_id
+        df_matches['neighbors'] = df_matches.apply(lambda x: df_matches.loc[(df_matches['time_index'] < x['time_index'] + len(t)) &
+                                                                        (df_matches['time_index'] >= x['time_index']) &
+                                                                        (df_matches['song_id'] == x['song_id'])].shape[0], axis=1)
+        df_song_matches = df_matches.groupby('song_id').agg({'neighbors': 'sum', 'total_signatures': 'first'})
+        df_song_matches['weighting'] = df_song_matches['neighbors'] / df_song_matches['total_signatures']
+        df_song_matches['P'] = df_song_matches['weighting'] / df_song_matches['weighting'].sum()
         probability = df_song_matches['P'].max()
 
-        if probability < self.MIN_PROBABILITY_FOR_MATCH or pd.isnull(probability):
+        if (probability < self.MIN_PROBABILITY_FOR_MATCH) or pd.isnull(probability)\
+                or (df_matches['neighbors'].max() < self.MIN_NEIGHBORS_FOR_MATCH):
             logger.info('No adequate matches found')
             return -1, probability, attempt_id
         logger.info('Match selected')

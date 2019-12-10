@@ -196,7 +196,7 @@ if __name__ == '__main__':
                                 --dir/Artist-name/album-name/songs
                             
                                 """)
-    parser_add.add_argument('target')
+    parser_add.add_argument('target', help='Directory or filepath to be added')
 
     ###################################
     # UPDATE A TABLE
@@ -210,44 +210,43 @@ if __name__ == '__main__':
     subparser_update = parser_update.add_subparsers(title='table',dest='update_table')
 
     subparser_update_song = subparser_update.add_parser('song')
-    subparser_update_song.add_argument('name',type=str)
-    subparser_update_song.add_argument('--artist',type=str)
-    subparser_update_song.add_argument('--artist_id', type=int)
-    subparser_update_song.add_argument('--album', type=str)
-    subparser_update_song.add_argument('--album_id', type=int)
-    subparser_update_song.add_argument('--filesource', type=str)
+    subparser_update_song.add_argument('name',type=str, help='Name of the song you seek to update')
+    subparser_update_song.add_argument('--artist',type=str, help='artist name to update')
+    subparser_update_song.add_argument('--artist_id', type=int, help='artist_id to update')
+    subparser_update_song.add_argument('--album', type=str, help='album name to update')
+    subparser_update_song.add_argument('--album_id', type=int, help='album_id to update')
+    subparser_update_song.add_argument('--filesource', type=str, help='filepath to update')
 
-    subparser_update_album = subparser_update.add_parser('album')
-    subparser_update_album.add_argument('name')
-    subparser_update_album.add_argument('--artist',type=str)
-    subparser_update_album.add_argument('--artist_id', type=int)
-
-    parser_remove = subparsers.add_parser(REMOVE,
-                                          help="""Remove by id. Need to pass the table which you care to remove, 
-                                          the name of the row, and then additional where specification""",
-                                          )
+    subparser_update_album = subparser_update.add_parser('album', help='Update Album table')
+    subparser_update_album.add_argument('name', help='Album name you seek to updte')
+    subparser_update_album.add_argument('--artist',type=str, help='Artist name to update to')
+    subparser_update_album.add_argument('--artist_id', type=int, help='artist_id you seek to update to')
 
     ###################################
     # REMOVE FROM A TABLE
     ###################################
 
-    subparser_remove = parser_remove.add_subparsers(title='table', dest='update_table')
+    parser_remove = subparsers.add_parser(REMOVE,
+                                          help="""Remove by id. Need to pass the table which you care to remove, 
+                                              the name of the row, and then additional where specification""",
+                                          )
+    subparser_remove = parser_remove.add_subparsers(title='table', dest='update_table',help='Table Name to be updated')
 
-    subparser_remove_song = subparser_remove.add_parser('song')
-    subparser_remove_song.add_argument('name', type=str)
-    subparser_remove_song.add_argument('--artist', type=str)
-    subparser_remove_song.add_argument('--artist_id', type=int)
-    subparser_remove_song.add_argument('--album', type=str)
-    subparser_remove_song.add_argument('--album_id', type=int)
-    subparser_remove_song.add_argument('--filesource', type=str)
+    subparser_remove_song = subparser_remove.add_parser('song',help='pass song to remove a song by name')
+    subparser_remove_song.add_argument('name', type=str,help='name of song to be removed')
+    subparser_remove_song.add_argument('--artist', type=str,help='artist name to identify song to be removed')
+    subparser_remove_song.add_argument('--artist_id', type=int,help='artist_id to identify song to be removed')
+    subparser_remove_song.add_argument('--album', type=str,help='album name to identify song to be removed')
+    subparser_remove_song.add_argument('--album_id', type=int,help='album_id to identify song to be removed')
+    subparser_remove_song.add_argument('--filesource', type=str,help='filepath to identify song to be removed')
 
-    subparser_remove_album = subparser_remove.add_parser('album')
-    subparser_remove_album.add_argument('name')
-    subparser_remove_album.add_argument('--artist', type=str)
-    subparser_remove_album.add_argument('--artist_id', type=int)
+    subparser_remove_album = subparser_remove.add_parser('album',help='pass album to remove from album table')
+    subparser_remove_album.add_argument('name', help='name of album to be removed')
+    subparser_remove_album.add_argument('--artist', type=str,help='artist name to identify album to be removed (Optional)')
+    subparser_remove_album.add_argument('--artist_id', type=int,help='artist_id to identify album to be removed (Optional)')
 
-    subparser_remove_artist = subparser_remove.add_parser('artist')
-    subparser_remove_artist.add_argument('name')
+    subparser_remove_artist = subparser_remove.add_parser('artist', help='Remove from Artist table by name')
+    subparser_remove_artist.add_argument('name', help='name of artist to be removed')
 
     ###################################
     # IDENTIFY SNIPPET
