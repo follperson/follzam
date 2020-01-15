@@ -1,8 +1,0 @@
-#+TITLE: Citations, Links, and Sources
-
-  + The Git Book: https://git-scm.com/book/en/v2/
-  + Atlassian Git Tutorials: https://www.atlassian.com/git/tutorials/
-  + [[http://rogerdudler.github.io/git-guide/][Git: The Simple Guide]]
-  + The Software Carpentry [[http://swcarpentry.github.io/git-novice/][Git lesson]]
-  + [[http://git-scm.com/book/en/v2][ProGit]]
-  + [[http://git-scm.com/docs][Git Reference Manual]]
