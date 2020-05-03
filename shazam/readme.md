@@ -46,7 +46,7 @@ To initialize the database you first need a directory of audio files.
 
 Depending on the structure, run the freezam add command with appropriate specifications
 
-eg. if structured like <artists> / <albums> / <songs>
+eg. if structured like \<artists\> / \<albums\> / \<songs\>
 
 run like: `python freezam.py add --dir <directory_to_add>`
 
