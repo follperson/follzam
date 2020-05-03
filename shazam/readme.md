@@ -50,11 +50,11 @@ eg. if structured like \<artists\> / \<albums\> / \<songs\>
 
 run like: `python freezam.py add --dir <directory_to_add>`
 
-if structured like <albums> / <songs>
+if structured like \<albums\> / \<songs\>
 
 run like: `python freezam.py add --dir --artist=<artist_name> <directory_to_add>`
 
-if structured like / <songs> 
+if structured like / \<songs\> 
 
 run like: `python freezam.py add --dir --artist=<artist_name> --album=<album_name> <directory_to_add>`
 
