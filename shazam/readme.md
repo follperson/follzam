@@ -1,4 +1,4 @@
-# Follzam README
+# Follzam - Audio Fingerprinting
 
 ## Purpose
 
