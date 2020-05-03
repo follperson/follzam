@@ -70,5 +70,5 @@ We find that it takes approximately 1 second to fingerprint a song, and we have 
  
 ## Questions?
 
-Please contact author [Andrew Follmann](follperson.github.io) with any questions or concerns.
+Please contact author [Andrew Follmann](https://follperson.github.io) with any questions or concerns.
 
