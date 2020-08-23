@@ -8,6 +8,7 @@ import pandas as pd
 
 vers = str(time.time()).split('.')[0]
 
+
 def test_snippet_matching():
     """
     test to evaluate the
@@ -43,7 +44,6 @@ def test_snippet_matching():
     df_tot['actual'] = "TOTALS"
     df = df.append(df_tot, ignore_index=True)
     df.to_csv(os.path.join(basepath, 'follzam/tests/results/True Song Match Results_%s.csv' % vers))
-
 
 
 def test_snippet_matching_fakes():

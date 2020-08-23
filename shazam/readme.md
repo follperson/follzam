@@ -80,3 +80,7 @@ We find that it takes approximately 1 second to fingerprint a song, and we have 
 
 Please contact author [Andrew Follmann](follperson.github.io) with any questions or concerns.
 
+### Notes
+
+The test scripts are all developed to run with hard-coded (relative) directories that I were created for this project.
+You ought to change those paths for your project.  

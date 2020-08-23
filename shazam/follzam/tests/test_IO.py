@@ -4,6 +4,8 @@ from follzam.IO_methods import ReadAudioData
 from follzam.exceptions import UnsupportedFileType
 ex_url = "https://upload.wikimedia.org/wikipedia/en/0/0c/She_Loves_You_%28Beatles_song_-_sample%29.ogg"
 
+
+# ex:
 path_to_mp3 = os.path.join(basepath, 'assets/audio/Sigur Ros/Agaetis Byrjun/01 - Intro.mp3')
 path_to_flac = os.path.join(basepath, 'assets/audio/Brian Eno/Ambient 1 Music For Airports/01 Brian Eno - 1-1.flac')
 path_to_non_file = '/fakepath'

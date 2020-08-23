@@ -21,9 +21,8 @@ def split_song(filepath, out_file_root):
                                                             os.path.join(out_file_root, '.'.join(current_filename))))
 
 
-def generate_snippets_from_catalog():
-    root_dir = r'C:\Users\follm\Downloads\torrents\audio\The Cure\Seventeen Seconds'
-    out_root = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\new_files'
+def generate_snippets_from_catalog(root_dir, out_root):
+
     for root, dirs, files in os.walk(root_dir):
         for f in files:
             print('Splitting', f)
@@ -31,4 +30,7 @@ def generate_snippets_from_catalog():
 
 
 if __name__ == '__main__':
-    generate_snippets_from_catalog()
+    #  ex: root_dir = r'C:\Users\follm\Downloads\torrents\audio\The Cure\Seventeen Seconds'
+    #      out_root = r'C:\Users\follm\Documents\s750\assignments-follperson\shazam\assets\files_for_tests\new_files'
+    #generate_snippets_from_catalog(root_dir, out_root)
+    pass
