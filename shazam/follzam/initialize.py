@@ -4,7 +4,7 @@ from follzam.exceptions import NoResults
 import follzam.database_management as dbm
 import follzam.SignalProcessing as sp
 from follzam import TABLE_NAMES, GENRES, SIGNALTYPES, logging
-from follzam.DatabaseInfo import create_full_schema, drop_tables, create_signature
+from follzam.DatabaseInfo import full_schema, drop_tables, create_signature, db_file
 import os
 import pandas as pd
 
@@ -17,31 +17,37 @@ def make_database(dbh=None,delete=False):
     :param delete: boolean, True if you want to delete the database schema, False if not. Default False
     :return: None
     """
-    if dbh is None:
-        dbh = dbm.DatabaseHandler()
-
     if delete:
         logger.info('Deleting Previous Database Schema')
-        dbh.cur.execute(drop_tables)
+        os.remove(db_file)
+
+    if dbh is None:
+        dbh = dbm.DatabaseHandler(True)
 
     logger.info('Creating New Database Schema')
-    dbh.cur.execute(create_full_schema)
+    for query in full_schema:
+        dbh.cur.execute(query)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.SIGNATURE_TYPES))
     with open(os.path.join(basepath, 'assets/signature_types.sql'),'r') as sql_f:
         sql = sql_f.read()
-    dbh.cur.execute(sql.format(TABLE_NAMES.SIGNATURE_TYPES, ', '.join(['(%s)'] * len(SIGNALTYPES.ALL))),
-                    SIGNALTYPES.ALL)
+    dbh.cur.execute(sql.format(TABLE_NAMES.SIGNATURE_TYPES, '\'), (\''.join(SIGNALTYPES.ALL)))
+
+    # dbh.cur.execute(sql.format(TABLE_NAMES.SIGNATURE_TYPES, ', '.join(['(%s)'] * len(SIGNALTYPES.ALL))),
+    #                 *SIGNALTYPES.ALL)
+
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.FILE_TYPE))
     with open(os.path.join(basepath, 'assets/file_types.sql'),'r') as file_f:
         sql = file_f.read()
-    dbh.cur.execute(sql.format(TABLE_NAMES.FILE_TYPE, ', '.join(['(%s)']*len(VALID_FILE_TYPES))), VALID_FILE_TYPES)
+    dbh.cur.execute(sql.format(TABLE_NAMES.FILE_TYPE, '\'), (\''.join(VALID_FILE_TYPES)))
+    #dbh.cur.execute(sql.format(TABLE_NAMES.FILE_TYPE, ', '.join(['(%s)']*len(VALID_FILE_TYPES))), VALID_FILE_TYPES)
 
     logger.info('Loading {} Database Table'.format(TABLE_NAMES.GENRE))
     with open(os.path.join(basepath, 'assets/genres.sql'),'r') as genres:
         sql = genres.read()
-    dbh.cur.execute(sql.format(TABLE_NAMES.GENRE, ', '.join(['(%s)']*len(GENRES))), GENRES)
+    dbh.cur.execute(sql.format(TABLE_NAMES.GENRE, '\'), (\''.join(GENRES)))
+    #dbh.cur.execute(sql.format(TABLE_NAMES.GENRE, ', '.join(['(%s)']*len(GENRES))), GENRES)
 
 
 def initialize(signal_processor=sp.SignalProcessorSpectrogram):

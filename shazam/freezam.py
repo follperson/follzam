@@ -1,10 +1,10 @@
 import argparse
 import os
-from follzam import __version__
+from follzam import __version__, VALID_FILE_TYPES
 import logging
 logger = logging.getLogger(__name__)
 
-# todo command line driver
+
 
 def identify(path):
     from follzam.database_management import DatabaseHandler
@@ -21,12 +21,17 @@ def identify(path):
         return
     prediction, p, attempt_id = sp.match(dbh)
     if prediction == -1:
-        print("Could not find a match")
+        logger.info("Could not find a match")
         return
     title, artist, album = prediction
     logger.info(
         "Match attempt #{}. \n\t Predicted {} by {} on {} with {}% confidence. ".format(attempt_id, title, artist,
                                                                                         album, round(p * 100, 1)))
+
+
+def initialize(delete):
+    from follzam.initialize import make_database
+    make_database(delete=delete)
 
 
 def add(target, title=None, artist=None, album=None, from_dir=False, genre=None, year=None):
@@ -57,6 +62,7 @@ def add(target, title=None, artist=None, album=None, from_dir=False, genre=None,
             add_from_album_level_folder(root, dbh, artist, album, genre, year)
         else:
             raise NotImplementedError
+        return
     raise NotImplementedError
 
 
@@ -86,13 +92,15 @@ def add_from_artist_level_folder(root, dbh, artist, genre, year):
     for album in os.listdir(root):
         album_folder = os.path.join(root, album)
         if not os.path.isdir(album_folder): continue
-        add_from_album_level_folder(root, dbh, artist, album, genre, year)
+        add_from_album_level_folder(album_folder, dbh, artist, album, genre, year)
 
 
 def add_from_album_level_folder(root, dbh, artist, album, genre, year):
     for filename in os.listdir(root):
-        add_song(os.path.join(root, filename), dbh, artist=artist, album=album, genre=genre, year=year)
-
+        if filename.split('.')[-1].upper() in VALID_FILE_TYPES:
+            add_song(os.path.join(root, filename), dbh, artist=artist, album=album, genre=genre, year=year)
+        else:
+            logger.info('Skipping non recogized file type', filename)
 
 def add_song(filepath, dbh, artist, album, genre, year, name=None):
     """
@@ -111,10 +119,9 @@ def add_song(filepath, dbh, artist, album, genre, year, name=None):
     from follzam.SignalProcessing import SignalProcessorSpectrogram, NoSignatures
     # Before we do any database updating lets make sure that the file we are working with is a valid file
     assert os.path.isfile(filepath), 'not a file, cannot do anything with this'
-    try:
-        rad = ReadAudioData(filepath)
-    except UnsupportedFileType:
-        return
+    if 'Son of Sam' in filepath:
+        print(filepath)
+        pass
 
     # Make sure the artist and album is in the database. If they are not then we will add them
     try:
@@ -132,16 +139,24 @@ def add_song(filepath, dbh, artist, album, genre, year, name=None):
     if name is None:
         name = '.'.join(os.path.basename(filepath).split('.')[:-1])
 
-    sp = SignalProcessorSpectrogram(audio_array=rad.array,
-                                    sample_freq=rad.audio.frame_rate,
-                                    songinfo={'artist_id': artist_id, 'album_id': album_id, 'filesource': filepath,
-                                              'name': name})
     try:
         dbh.add_song(name=name, filesource=filepath, artist_id=artist_id, album_id=album_id)
     except CannotAddDuplicateRecords:
         logger.error('Song already exists in database, cannot re add. Skipping.')
         return
-    print(sp.songinfo)
+
+    # If we are sure it's new, add the signature to the database!
+
+    try:
+        rad = ReadAudioData(filepath)
+    except UnsupportedFileType:
+        return
+
+    sp = SignalProcessorSpectrogram(audio_array=rad.array,
+                                    sample_freq=rad.audio.frame_rate,
+                                    songinfo={'artist_id': artist_id, 'album_id': album_id, 'filesource': filepath,
+                                              'name': name})
+
     try:
         sp.compute_signature()
     except NoSignatures:
@@ -158,17 +173,26 @@ def list_database():
 if __name__ == '__main__':
     logger.info("Command line call to Follzam")
     parser = argparse.ArgumentParser(prog='Follzam',
-        description='Freezam is a python based audio feature identifier. It tries to identify the song which '
-                    'an audio snippet came from'
+        description='Freezam is a python based audio feature identifier. It tries to identify the song from which '
+                    'an audio snippet originated'
         )
     parser.add_argument('--version',action='version',version='%(prog)s ' + str(__version__))
 
     subparsers = parser.add_subparsers(title='actions', dest='subparser_name')
     ADD = 'add'
+    INIT = 'init'
     IDENTIFY = 'identify'
     LIST = 'list'
     UPDATE = 'update'
     REMOVE = 'remove'
+
+    ###################################
+    # INITIALIZE DATABASE
+    ###################################
+    parser_init = subparsers.add_parser(INIT,
+                                       help='''initialize database. Must be done before any song processing
+                                       ''')
+    parser_init.add_argument('--reset',  action='store_true', help='Delete the current database')
 
     ###################################
     # ADD SONGS
@@ -269,8 +293,9 @@ if __name__ == '__main__':
     ###################################
 
     args = parser.parse_args()
-    print(args)
-    if args.subparser_name == IDENTIFY:
+    if args.subparser_name == INIT:
+        initialize(args.reset)
+    elif args.subparser_name == IDENTIFY:
         identify(args.song)
     elif args.subparser_name == ADD:
         add(args.target, args.title, args.artist, args.album, args.dir, args.genre, args.year)

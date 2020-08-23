@@ -1,44 +1,39 @@
-import assets.db_access_info as credentials
+#import assets.db_access_info as credentials
 from follzam import basepath
 import sqlalchemy
 from follzam.exceptions import *
 from follzam import TABLE_NAMES
+from follzam.DatabaseInfo import db_file
 import numpy
+from os import path
 from psycopg2.extensions import register_adapter, AsIs
 import logging
 logger = logging.getLogger(__name__)
 
 # todo: update, remove
 
-# https://github.com/openego/ego.io/commit/8e7c64e0e9868b9bbc3156c70f6c368cad427f1f
-def adapt_numpy_int64(numpy_int64):
-    """ Adapting numpy.int64 type to SQL-conform int type using psycopg extension, see [1]_ for more info.
-    References
-    ----------
-    .. [1] http://initd.org/psycopg/docs/advanced.html#adapting-new-python-types-to-sql-syntax
-    """
-    return AsIs(numpy_int64)
+# # https://github.com/openego/ego.io/commit/8e7c64e0e9868b9bbc3156c70f6c368cad427f1f
+# def adapt_numpy_int64(numpy_int64):
+#     """ Adapting numpy.int64 type to SQL-conform int type using psycopg extension, see [1]_ for more info.
+#     References
+#     ----------
+#     .. [1] http://initd.org/psycopg/docs/advanced.html#adapting-new-python-types-to-sql-syntax
+#     """
+#     return AsIs(numpy_int64)
+#
+#
+# register_adapter(numpy.int64, adapt_numpy_int64)
 
 
-register_adapter(numpy.int64, adapt_numpy_int64)
-
-
-def get_access_info():
-    return {'user':credentials.username,
-            'password':credentials.password,
-            'host':credentials.host,
-            'dbname':'afollman'}
-
-
-def get_engine():
-    info = get_access_info()
-    engine = sqlalchemy.create_engine('postgresql://' + info['user'] + ':' + info['password'] + '@' + info['host'])
+def get_engine(create=False):
+    if not path.exists(db_file) and not create:
+        raise NotImplementedError("Database not yet created! You must run the database initialize command")
+    if create:
+        if path.exists(db_file):
+            raise DatabaseExists()
+    engine = sqlalchemy.create_engine('sqlite:///' + db_file)
     engine.connect()
     return engine
-
-# tests for oridnary ufcntions are separrate from dbquerying tests
-# pytests can be expected to fail or have skip logic
-
 
 
 class DatabaseHandler(object):
@@ -46,15 +41,16 @@ class DatabaseHandler(object):
         This class managages the access and updates to SQL
     """
 
-    def __init__(self):
+    def __init__(self, create=False):
         """
             initialize a database connection
         """
-        self.cur = get_engine()
+        self.cur = get_engine(create=create)
         self.con = self.cur.connect()
 
     def execute_query(self, query, params=None):
-        return self.cur.execute(query, params)
+        return self.cur.execute(query.replace('%s','?'), params)
+        # return self.cur.execute(query.replace('%s', '"{}"').format(*params))
 
     def _generic_insert(self, table, insert_kv):
         """
@@ -64,10 +60,10 @@ class DatabaseHandler(object):
         :return:
         """
         assert table in TABLE_NAMES.ALL, 'Table name {} is not in our database schema'.format(table)
-        logger.info('Inserting into {} {} values'.format(table, len(insert_kv)))
+        logger.debug('Inserting into {}  {} values'.format(table, insert_kv))
         ks, vs = self._get_key_val_list(insert_kv)
         sql = 'INSERT INTO {} ({}) VALUES ({})'.format(table, ', '.join(ks), ', '.join(['%s']*len(vs)))
-        self.cur.execute(sql, vs)
+        self.execute_query(sql, vs)
 
     def _song_where_check(self, **kwargs):
         """
@@ -139,14 +135,17 @@ class DatabaseHandler(object):
         self._generic_insert(TABLE_NAMES.ALBUM, insert_kv=kwargs)
 
     def get_album_id(self, **where):
-        albums = self.get_album(**where)
+        try:
+            albums = self.get_album(**where)
+        except NoResults:
+            raise NoResults("No Album found matching provided specifications",where)
         if len(albums) > 1:
             raise TooManyResults('We have too many albums with the associated where clause')
         return albums[0]['id']
 
     def get_total_signatures_for_given_song(self, method_id, song_id):
         query = 'SELECT count(time_index) FROM {} WHERE method_id=%s AND song_id=%s;'.format(TABLE_NAMES.SIGNATURE)
-        return self.con.execute(query, (method_id, song_id)).fetchone()[0]
+        return self.execute_query(query, (method_id, song_id)).fetchone()[0]
 
     def remove_album(self, **kwargs):
         album_id = self.get_album_id(**kwargs)
@@ -187,14 +186,15 @@ class DatabaseHandler(object):
         :return: artist_name, album_name, song_name
         """
         query = """SELECT {}.name, {}.name, {}.name FROM {} 
-                    INNER JOIN {} on {}.artist_id = {}.id 
-                    INNER JOIN {} on {}.album_id={}.id 
+                    INNER JOIN {} ON {}.artist_id = {}.id 
+                    INNER JOIN {} ON {}.album_id={}.id 
                     WHERE {}.id=%s""".format(
             TABLE_NAMES.SONG, TABLE_NAMES.ARTIST, TABLE_NAMES.ALBUM, TABLE_NAMES.SONG,
             TABLE_NAMES.ARTIST, TABLE_NAMES.SONG, TABLE_NAMES.ARTIST,
             TABLE_NAMES.ALBUM, TABLE_NAMES.SONG, TABLE_NAMES.ALBUM, TABLE_NAMES.SONG
         )
-        return self.cur.execute(query, (song_id,)).fetchone()
+        return self.execute_query(query, song_id).fetchone()
+        #return self.cur.execute(query, (song_id,)).fetchone()
 
     def get_one_song(self,*cols, **where):
         """
@@ -407,14 +407,13 @@ class DatabaseHandler(object):
             print our some basic information about our tables
         :return:
         """
+        raise NotImplementedError
         sql_songs = """SELECT count(id), artist.name 
                         from {}
                         inner join 
                         songs.artist_id=artist.id 
                         group by artist_id;""".format(TABLE_NAMES.SONG)
         sql_signatures = """select count(unique song_id) from {}""".format(TABLE_NAMES.SIGNATURE)
-        print(self.execute_query(sql_songs))
-        print(self.execute_query(sql_signatures))
 
     def get_signatures_by_type_name(self, name):
         """

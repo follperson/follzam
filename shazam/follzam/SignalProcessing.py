@@ -102,25 +102,24 @@ class SignalProcessor(object):
         df = pd.DataFrame(self.signature,columns=['time_index','frequency','signature'])
         df['method_id'] = sig_type_id
         df['song_id'] = song_id
-
         df.to_sql(TABLE_NAMES.SIGNATURE,
                   con=dbh.cur,
                   if_exists='append',
-                  index=False,
-                  method='multi')
+                  index=False
+                  )
 
     def match(self, dbh):
         raise NotImplementedError
 
     def load_match_attempt(self, dbh):
         method_id = dbh.get_signature_id_by_name(self.method)
-        dbh.cur.execute('INSERT INTO {} (method_id) VALUES (%s)'.format(TABLE_NAMES.MATCH_ATTEMPT), method_id)
-        attempt_id = dbh.cur.execute('SELECT max(id) FROM {};'.format(TABLE_NAMES.MATCH_ATTEMPT)).fetchone()[0]
+        dbh._generic_insert(TABLE_NAMES.MATCH_ATTEMPT, {'method_id':method_id}   )
+        attempt_id = dbh._generic_select(TABLE_NAMES.MATCH_ATTEMPT, 'max(id)')[0][0]
         logger.info('Loading Match Attempt to Database {}'.format(attempt_id))
         df = pd.DataFrame(self.signature, columns=['time_index', 'frequency', 'signature'])
         df['match_id'] = attempt_id
         df[['signature', 'frequency', 'match_id']].drop_duplicates().to_sql(
-            TABLE_NAMES.SIGNATURE_MATCH, con=dbh.cur, if_exists='append', index=False, method='multi')
+            TABLE_NAMES.SIGNATURE_MATCH, con=dbh.cur, if_exists='append', index=False)
         return attempt_id
 
 
@@ -139,7 +138,7 @@ class SignalProcessorSpectrogram(SignalProcessor):
     FREQ_NET_WINDOW = 30  # frequency propagation of net
     MIN_POWER = 10 # minimum power for a peak in decibels
     LOOK_FORWARD_WINDOW_START = N_STEPS_IN_SECOND  # how far ahead of the current time do we want to begin our peak net
-    MIN_PROBABILITY_FOR_MATCH = .1  # minimum certainty threshold
+    MIN_PROBABILITY_FOR_MATCH = .2  # minimum certainty threshold
     MIN_NEIGHBORS_FOR_MATCH = 10
 
     def __init__(self, audio_array, sample_freq, **kwargs):
@@ -245,26 +244,44 @@ class SignalProcessorSpectrogram(SignalProcessor):
         :return: song name, artist name, album name, certainty of match, attempt _d
         """
         attempt_id = self.load_match_attempt(dbh)
-        match_query_text = """SELECT {}.time_index, {}.signature, {}.song_id, totals.total_signatures FROM {} 
+        # match_query_text = """SELECT {}.time_index, {}.signature, {}.song_id, totals.total_signatures FROM {}
+        #             INNER JOIN {} ON {}.signature = {}.signature
+        #             INNER JOIN (SELECT count(time_index) as total_signatures, song_id FROM {}
+        #                         GROUP BY song_id) totals
+        #                         ON totals.song_id={}.song_id
+        #             WHERE {}.match_id = ?
+        #             ORDER BY {}.signature;
+        #         """.format(
+        #     TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE,
+        #                    TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
+        #                    TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
+        #                    TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE,
+        #                    TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
+        #                    TABLE_NAMES.SIGNATURE)
+        # df_matches = pd.read_sql(match_query_text, dbh.con, params=(attempt_id,))
+
+        match_query_text = """SELECT {}.match_id, {}.time_index, {}.signature, {}.song_id, totals.total_signatures FROM {} 
                     INNER JOIN {} ON {}.signature = {}.signature
                     INNER JOIN (SELECT count(time_index) as total_signatures, song_id FROM {} 
                                 GROUP BY song_id) totals
                                 ON totals.song_id={}.song_id 
-                    WHERE {}.match_id = %s
+                    
                     ORDER BY {}.signature;
-                """.format(
+                """.format(TABLE_NAMES.SIGNATURE_MATCH,
             TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE,
                            TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
                            TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
                            TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE,
-                           TABLE_NAMES.SIGNATURE, TABLE_NAMES.SIGNATURE_MATCH,
+                           TABLE_NAMES.SIGNATURE,
                            TABLE_NAMES.SIGNATURE)
-        # something about signatures
-        f,t,sxx= self.spectrogram
-        df_matches = pd.read_sql(match_query_text, dbh.con, params=(attempt_id,))
+
+        df_matches = pd.read_sql(match_query_text, dbh.con)
+        df_matches = df_matches.loc[df_matches.match_id == attempt_id,]
         if df_matches.empty:
             logger.info('No Matching signatures found')
             return -1, 0, attempt_id
+
+        f, t, sxx = self.spectrogram
         df_matches['neighbors'] = df_matches.apply(lambda x: df_matches.loc[(df_matches['time_index'] < x['time_index'] + len(t)) &
                                                                         (df_matches['time_index'] >= x['time_index']) &
                                                                         (df_matches['song_id'] == x['song_id'])].shape[0], axis=1)
@@ -277,10 +294,13 @@ class SignalProcessorSpectrogram(SignalProcessor):
                 or (df_matches['neighbors'].max() < self.MIN_NEIGHBORS_FOR_MATCH):
             logger.info('No adequate matches found')
             return -1, probability, attempt_id
+
         logger.info('Match selected')
-        song_id = df_song_matches['P'].idxmax()
+
+        song_id = int(df_song_matches['P'].idxmax())
         song_info = dbh.get_formatted_song_info(song_id)
-        update_prediction = '''UPDATE {} SET predicted_song_id=%s WHERE id=%s;'''.format(TABLE_NAMES.MATCH_ATTEMPT)
+
+        update_prediction = '''UPDATE {} SET predicted_song_id=? WHERE id=?;'''.format(TABLE_NAMES.MATCH_ATTEMPT)
         dbh.cur.execute(update_prediction, (song_id, attempt_id))
         return song_info, probability, attempt_id
 

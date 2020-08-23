@@ -22,6 +22,10 @@ optional arguments:
 
 actions:
   {add,update,remove,identify,list}
+    init                Initialize the database. Must do this first. 
+                        Provide --reset if you wish to teardown old database. 
+                        Database lives at location specified by db_file variable 
+                        in follzam/DatabaseInfo.py 
     add                 Add a new song to the database final position
                         parameter is file, or directory If you provide --title
                         you must provide --album and --artist if you provide
@@ -42,7 +46,11 @@ actions:
 
 ## initialize database
 
-To initialize the database you first need a directory of audio files.
+To initialize the database you need to run the command 
+
+`python freezam.py init`
+
+Next you should populate the database with the `add` commands
 
 Depending on the structure, run the freezam add command with appropriate specifications
 

@@ -29,6 +29,8 @@ class NoResults(Exception):
 class CannotDeleteLinkedData(Exception):
     """ We cannot delete the entry because it is linked in other tables. """
 
+class DatabaseExists(Exception):
+    """Database already present, cannot overwrite"""
 
 # Signal Processing Exceptions
 
