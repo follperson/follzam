@@ -1,4 +1,4 @@
-# Follzam README
+# Follzam - Audio Fingerprinting
 
 ## Purpose
 
@@ -54,15 +54,15 @@ Next you should populate the database with the `add` commands
 
 Depending on the structure, run the freezam add command with appropriate specifications
 
-eg. if structured like <artists> / <albums> / <songs>
+eg. if structured like \<artists\> / \<albums\> / \<songs\>
 
 run like: `python freezam.py add --dir <directory_to_add>`
 
-if structured like <albums> / <songs>
+if structured like \<albums\> / \<songs\>
 
 run like: `python freezam.py add --dir --artist=<artist_name> <directory_to_add>`
 
-if structured like / <songs> 
+if structured like / \<songs\> 
 
 run like: `python freezam.py add --dir --artist=<artist_name> --album=<album_name> <directory_to_add>`
 
@@ -78,7 +78,7 @@ We find that it takes approximately 1 second to fingerprint a song, and we have 
  
 ## Questions?
 
-Please contact author [Andrew Follmann](follperson.github.io) with any questions or concerns.
+Please contact author [Andrew Follmann](https://follperson.github.io) with any questions or concerns.
 
 ### Notes
 
