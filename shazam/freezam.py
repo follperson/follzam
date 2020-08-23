@@ -97,10 +97,8 @@ def add_from_artist_level_folder(root, dbh, artist, genre, year):
 
 def add_from_album_level_folder(root, dbh, artist, album, genre, year):
     for filename in os.listdir(root):
-        if filename.split('.')[-1].upper() in VALID_FILE_TYPES:
-            add_song(os.path.join(root, filename), dbh, artist=artist, album=album, genre=genre, year=year)
-        else:
-            logger.info('Skipping non recogized file type', filename)
+        add_song(os.path.join(root, filename), dbh, artist=artist, album=album, genre=genre, year=year)
+
 
 def add_song(filepath, dbh, artist, album, genre, year, name=None):
     """
@@ -119,9 +117,8 @@ def add_song(filepath, dbh, artist, album, genre, year, name=None):
     from follzam.SignalProcessing import SignalProcessorSpectrogram, NoSignatures
     # Before we do any database updating lets make sure that the file we are working with is a valid file
     assert os.path.isfile(filepath), 'not a file, cannot do anything with this'
-    if 'Son of Sam' in filepath:
-        print(filepath)
-        pass
+    if not filepath.split('.')[-1].upper() in VALID_FILE_TYPES:
+        logger.info('Skipping non recognized file type: {}'.format(os.path.basename(filepath)))
 
     # Make sure the artist and album is in the database. If they are not then we will add them
     try:
